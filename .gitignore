@@ -1,0 +1,11 @@
+venv/*
+
+nohup.out
+.env
+*.vtu
+*.pth
+.pytest_cache/
+**/__pycache__/
+
+.DS_Store
+.idea/
