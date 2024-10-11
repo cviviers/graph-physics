@@ -612,7 +612,9 @@ class GraphNetBlock(MessagePassing):
         edge_attr = self.edge_update(edge_attr, x_i, x_j)
 
         # Perform message passing and update node features
-        x = self.propagate(edge_index, x=x, edge_attr=edge_attr, size=size)
+        x = self.propagate(
+            edge_index, x=x, edge_attr=edge_attr, size=(x.size(0), x.size(0))
+        )
         return x, edge_attr
 
     def edge_update(

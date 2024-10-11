@@ -15,14 +15,17 @@
 - [X] Implement Message Passing and Transformer
 - [X] Implement EPD and ETD
 - [X] Find a way to not bug if you dont have dgl
-- [ ] Implement Simulator
-- [ ] Implement train loop with L.Lighting
+- [X] Implement Simulator
+- [X] Implement train loop with L.Lighting
 - [ ] Implement Wandb
 - [X] Use proper dataloader
 - [ ] Implement proper valdiation metric at the end of each epoch
-- [ ] Function to do rendering without paraview (test for 2D and 3D)
-- [ ] Implement vizu for one traj at the end of each epoch as well 
+- [X] Function to do rendering without paraview (test for 2D and 3D)
+- [X] Implement vizu for one traj at the end of each epoch as well 
 - [ ] Add loggers
+- [ ] Implement Masking
+
+- [ ] Pass to double check all and comments
 
 > [!WARNING]  
 > H5-based dataloader does not support multiple workers. XDMF can.
@@ -37,6 +40,8 @@
 - [ ] Write about how to define the .json and the 2 functions
 - [ ] Prepare readme
 - [ ] In the readme, say which features we implemented and from what paper
+- [ ] Write about DGL install, WandB install
+- [ ] Write about what's the usage of each parameters
 
 ## Dev wise
 
