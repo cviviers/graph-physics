@@ -1,0 +1,153 @@
+import json
+import os
+
+import torch
+from absl import app, flags
+from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.loggers import WandbLogger
+from loguru import logger
+from torch_geometric.data import DataLoader
+
+from graphphysics.training.callback import LogPyVistaPredictionsCallback
+from graphphysics.training.lightning_module import LightningModule
+from graphphysics.training.parse_parameters import get_dataset, get_preprocessing
+
+FLAGS = flags.FLAGS
+flags.DEFINE_integer("num_epochs", 10, "Number of epochs")
+flags.DEFINE_float("init_lr", 0.001, "Initial learning rate")
+flags.DEFINE_integer("batch_size", 2, "Batch size")
+flags.DEFINE_integer("warmup", 1000, "Learning rate warmup steps")
+flags.DEFINE_integer("num_workers", 2, "Number of DataLoader workers")
+flags.DEFINE_integer("prefetch_factor", 2, "Number of batches to prefetch")
+flags.DEFINE_string("model_save_path", None, "Path to the checkpoint (.ckpt) file")
+flags.DEFINE_bool("no_edge_feature", False, "Whether to use edge features")
+flags.DEFINE_string(
+    "training_parameters_path", None, "Path to the training parameters JSON file"
+)
+
+
+def main(argv):
+    del argv
+
+    # Check that the training parameters path is provided
+    if not FLAGS.training_parameters_path:
+        logger.error("The 'training_parameters_path' flag must be provided.")
+        return
+
+    # Load training parameters from JSON file
+    training_parameters_path = FLAGS.training_parameters_path
+    logger.info(f"Opening training parameters from {training_parameters_path}")
+    try:
+        with open(training_parameters_path, "r") as fp:
+            parameters = json.load(fp)
+    except Exception as e:
+        logger.error(f"Error reading training parameters: {e}")
+        return
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    num_epochs = FLAGS.num_epochs
+    initial_lr = FLAGS.init_lr
+    batch_size = FLAGS.batch_size
+    warmup = FLAGS.warmup
+    num_workers = FLAGS.num_workers
+    prefetch_factor = FLAGS.prefetch_factor
+    model_save_path = FLAGS.model_save_path
+    use_edge_feature = not FLAGS.no_edge_feature
+
+    # Build preprocessing function
+    preprocessing = get_preprocessing(
+        param=parameters,
+        device=device,
+        use_edge_feature=use_edge_feature,
+        extra_node_features=None,
+    )
+
+    # Get training and validation datasets
+    train_dataset = get_dataset(
+        param=parameters,
+        preprocessing=preprocessing,
+        use_edge_feature=use_edge_feature,
+        use_previous_data=False,
+    )
+
+    val_dataset = get_dataset(
+        param=parameters,
+        preprocessing=preprocessing,
+        use_edge_feature=use_edge_feature,
+        use_previous_data=False,
+        switch_to_val=True,
+    )
+
+    # Create DataLoaders
+    persistent_workers = num_workers > 0
+    train_dataloader = DataLoader(
+        train_dataset,
+        shuffle=True,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        prefetch_factor=prefetch_factor,
+        persistent_workers=persistent_workers,
+    )
+
+    valid_dataloader = DataLoader(
+        val_dataset,
+        shuffle=False,
+        batch_size=1,
+        num_workers=num_workers,
+        prefetch_factor=prefetch_factor,
+        persistent_workers=persistent_workers,
+    )
+
+    # Define or resume model
+    num_steps = num_epochs * len(train_dataloader)
+
+    if model_save_path and os.path.isfile(model_save_path):
+        logger.info(f"Loading model from checkpoint: {model_save_path}")
+        lightning_module = LightningModule.load_from_checkpoint(
+            checkpoint_path=model_save_path,
+            parameters=parameters,
+            warmup=warmup,
+            learning_rate=initial_lr,
+            num_steps=num_steps,
+        )
+    else:
+        logger.info("Initializing new model")
+        lightning_module = LightningModule(
+            parameters=parameters,
+            learning_rate=initial_lr,
+            num_steps=num_steps,
+            warmup=warmup,
+        )
+
+    # Initialize WandbLogger
+    wandb_logger = WandbLogger(project="my_project")
+    checkpoint_callback = ModelCheckpoint(dirpath="checkpoints/")
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+
+    # Configure Trainer
+    trainer = Trainer(
+        accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        devices=1,
+        max_epochs=num_epochs,
+        logger=wandb_logger,
+        callbacks=[
+            checkpoint_callback,
+            LogPyVistaPredictionsCallback(dataset=val_dataset, indices=[0, 50, 100]),
+            lr_monitor,
+        ],
+        log_every_n_steps=1,
+    )
+
+    # Start training
+    logger.success("Starting training")
+    trainer.fit(
+        model=lightning_module,
+        train_dataloaders=train_dataloader,
+        val_dataloaders=valid_dataloader,
+    )
+
+
+if __name__ == "__main__":
+    app.run(main)

@@ -21,6 +21,7 @@ class H5Dataset(BaseDataset):
         khop: int = 1,
         add_edge_features: bool = True,
         use_previous_data: bool = False,
+        switch_to_val: bool = False,
     ):
         super().__init__(
             meta_path=meta_path,
@@ -30,6 +31,9 @@ class H5Dataset(BaseDataset):
             add_edge_features=add_edge_features,
             use_previous_data=use_previous_data,
         )
+
+        if switch_to_val:
+            h5_path = h5_path.replace("train", "test")
 
         self.h5_path = h5_path
         self.meta_path = meta_path

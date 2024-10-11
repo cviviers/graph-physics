@@ -21,6 +21,7 @@ class XDMFDataset(BaseDataset):
         khop: int = 1,
         add_edge_features: bool = True,
         use_previous_data: bool = False,
+        switch_to_val: bool = False,
     ):
         super().__init__(
             meta_path=meta_path,
@@ -30,7 +31,8 @@ class XDMFDataset(BaseDataset):
             add_edge_features=add_edge_features,
             use_previous_data=use_previous_data,
         )
-
+        if switch_to_val:
+            xdmf_folder = xdmf_folder.replace("train", "test")
         self.xdmf_folder = xdmf_folder
         self.meta_path = meta_path
 

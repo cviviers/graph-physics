@@ -138,6 +138,7 @@ def get_dataset(
     masking_ratio: Optional[float] = None,
     use_edge_feature: bool = True,
     use_previous_data: bool = False,
+    switch_to_val: bool = False,
 ):
     """
     Constructs the dataset based on provided parameters.
@@ -168,6 +169,7 @@ def get_dataset(
             khop=khop,
             add_edge_features=use_edge_feature,
             use_previous_data=use_previous_data,
+            switch_to_val=switch_to_val,
         )
     elif extension == "xdmf":
         return XDMFDataset(
@@ -178,6 +180,7 @@ def get_dataset(
             khop=khop,
             add_edge_features=use_edge_feature,
             use_previous_data=use_previous_data,
+            switch_to_val=switch_to_val,
         )
     else:
         raise ValueError(f"Dataset extension '{extension}' not supported.")
