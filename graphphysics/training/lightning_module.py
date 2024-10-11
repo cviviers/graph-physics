@@ -9,6 +9,17 @@ from graphphysics.utils.nodetype import NodeType
 from graphphysics.utils.scheduler import CosineWarmupScheduler
 
 
+def build_mask(param: dict, graph: Batch):
+    if len(graph.x.shape) > 2:
+        node_type = graph.x[:, 0, param["index"]["node_type_index"]]
+    else:
+        node_type = graph.x[:, param["index"]["node_type_index"]]
+    mask = torch.logical_or(node_type == NodeType.NORMAL, node_type == NodeType.OUTFLOW)
+    mask = torch.logical_not(mask)
+
+    return mask
+
+
 class LightningModule(L.LightningModule):
     """
     PyTorch Lightning Module for training a Simulator model.
@@ -23,6 +34,7 @@ class LightningModule(L.LightningModule):
         learning_rate: float,
         num_steps: int,
         warmup: int,
+        trajectory_length: int = 599,
         only_processor: bool = False,
         masks: list[NodeType] = [NodeType.NORMAL, NodeType.OUTFLOW],
     ):
@@ -42,6 +54,8 @@ class LightningModule(L.LightningModule):
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
+        self.param = parameters
+
         processor = get_model(param=parameters, only_processor=only_processor)
 
         print(processor)
@@ -60,6 +74,12 @@ class LightningModule(L.LightningModule):
         self.num_steps = num_steps
         self.warmup = warmup
 
+        self.val_step_outputs = []
+        self.val_step_targets = []
+        self.trajectory_length = trajectory_length
+        self.current_val_trajectory = 0
+        self.last_val_prediction = None
+
     def forward(self, graph: Batch):
         return self.model(graph)
 
@@ -73,8 +93,68 @@ class LightningModule(L.LightningModule):
             node_type,
             masks=self.loss_masks,
         )
-        self.log("loss", loss)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
+
+    def validation_step(self, batch: Batch, batch_idx: int):
+        # Determine if we need to reset the trajectory
+        if batch_idx // self.trajectory_length > self.current_val_trajectory:
+            self.current_val_trajectory += 1
+            self.last_val_prediction = None
+
+        # Prepare the batch for the current step
+        batch = batch.clone()  # Avoid in-place modification
+        if self.last_val_prediction is not None:
+            # Update the batch with the last prediction
+            batch.x[:, self.model.output_index_start : self.model.output_index_end] = (
+                self.last_val_prediction.detach()
+            )
+
+        mask = build_mask(self.param, batch)
+        node_type = batch.x[:, self.model.node_type_index]
+        target = batch.y
+
+        with torch.no_grad():
+            _, _, predicted_outputs = self.model(batch)
+
+        # Apply mask to predicted outputs
+        predicted_outputs[mask] = target[mask]
+        self.val_step_outputs.append(predicted_outputs.cpu())
+        self.val_step_targets.append(target.cpu())
+
+        self.last_val_prediction = predicted_outputs
+
+        val_loss = self.loss(
+            target,
+            predicted_outputs,
+            node_type,
+            masks=self.loss_masks,
+        )
+
+        self.log("val_loss", val_loss, on_step=False, on_epoch=True, prog_bar=True)
+
+    def on_validation_epoch_end(self):
+        # Concatenate outputs and targets
+        predicteds = torch.cat(self.val_step_outputs, dim=0)
+        targets = torch.cat(self.val_step_targets, dim=0)
+
+        # Compute RMSE over all rollouts
+        squared_diff = (predicteds - targets) ** 2
+        all_rollout_rmse = torch.sqrt(squared_diff.mean()).item()
+
+        self.log(
+            "val_all_rollout_rmse",
+            all_rollout_rmse,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+        )
+
+        # Clear stored outputs
+        self.val_step_outputs.clear()
+        self.val_step_targets.clear()
+        self.current_val_trajectory = 0
+        self.last_val_prediction = None
 
     def configure_optimizers(self):
         """Initialize the optimizer"""

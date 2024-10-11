@@ -17,12 +17,12 @@
 - [X] Find a way to not bug if you dont have dgl
 - [X] Implement Simulator
 - [X] Implement train loop with L.Lighting
-- [ ] Implement Wandb
+- [X] Implement Wandb
 - [X] Use proper dataloader
-- [ ] Implement proper valdiation metric at the end of each epoch
+- [X] Implement proper valdiation metric at the end of each epoch
 - [X] Function to do rendering without paraview (test for 2D and 3D)
 - [X] Implement vizu for one traj at the end of each epoch as well 
-- [ ] Add loggers
+- [X] Add loggers
 - [ ] Implement Masking
 
 - [ ] Pass to double check all and comments

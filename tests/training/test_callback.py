@@ -57,13 +57,12 @@ class TestLogPyVistaPredictionsCallback(unittest.TestCase):
         self.assertEqual(len(images), len(self.indices))
         self.assertEqual(len(captions), len(self.indices))
 
-    """def tearDown(self):
-        # Clean up any generated files or directories
+    def tearDown(self):
         import shutil
         import os
 
         if os.path.exists(self.output_dir):
-            shutil.rmtree(self.output_dir)"""
+            shutil.rmtree(self.output_dir)
 
 
 if __name__ == "__main__":

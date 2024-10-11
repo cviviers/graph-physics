@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import torch
 from torch_geometric.data import DataLoader, Dataset
-from torch_geometric.data import Data
+from torch_geometric.data import Data, Batch
 import lightning as L
 
 from graphphysics.training.lightning_module import LightningModule
@@ -86,12 +86,15 @@ with patch("graphphysics.training.parse_parameters.get_model") as mock_get_model
             mock_get_model.return_value = self.mock_processor
             mock_get_simulator.return_value = self.mock_simulator
 
+            self.trajectory_length = 599
+
             self.model = LightningModule(
                 parameters=self.parameters,
                 learning_rate=self.learning_rate,
                 num_steps=self.num_steps,
                 warmup=self.warmup,
                 only_processor=self.only_processor,
+                trajectory_length=self.trajectory_length,
             )
 
             self.dataset = MockDataset()
@@ -118,6 +121,70 @@ with patch("graphphysics.training.parse_parameters.get_model") as mock_get_model
         def test_full_training_loop(self):
             trainer = L.Trainer(fast_dev_run=True)
             trainer.fit(self.model, train_dataloaders=self.dataloader)
+
+        def test_validation_step(self):
+            self.dataloader = DataLoader(self.dataset, batch_size=1)
+            batch = next(iter(self.dataloader))
+
+            # Run validation step
+            self.model.eval()
+            self.model.validation_step(batch, batch_idx=0)
+
+            # Check that val_step_outputs and val_step_targets have been updated
+            self.assertEqual(len(self.model.val_step_outputs), 1)
+            self.assertEqual(len(self.model.val_step_targets), 1)
+            self.assertEqual(self.model.val_step_outputs[0].shape, (10, 3))
+            self.assertEqual(self.model.val_step_targets[0].shape, (10, 3))
+
+            # Check that last_val_prediction is set
+            self.assertIsNotNone(self.model.last_val_prediction)
+            self.assertEqual(self.model.last_val_prediction.shape, (10, 3))
+
+        def test_on_validation_epoch_end(self):
+            # Simulate multiple validation steps
+            num_steps = 3
+            batch_size = 5
+            output_dim = 2
+            self.model.eval()
+            for i in range(num_steps):
+                predicted_outputs = torch.randn(batch_size, output_dim)
+                targets = torch.randn(batch_size, output_dim)
+                self.model.val_step_outputs.append(predicted_outputs)
+                self.model.val_step_targets.append(targets)
+
+            # Run on_validation_epoch_end
+            with patch.object(self.model, "log") as mock_log:
+                self.model.on_validation_epoch_end()
+
+                # Check that RMSE is computed and logged
+                mock_log.assert_called_with(
+                    "val_all_rollout_rmse",
+                    unittest.mock.ANY,
+                    on_step=False,
+                    on_epoch=True,
+                    prog_bar=True,
+                )
+
+            # Check that val_step_outputs and val_step_targets are cleared
+            self.assertEqual(len(self.model.val_step_outputs), 0)
+            self.assertEqual(len(self.model.val_step_targets), 0)
+            self.assertEqual(self.model.current_val_trajectory, 0)
+            self.assertIsNone(self.model.last_val_prediction)
+
+        def test_validation_step_resets_trajectory(self):
+            # Create mock batches
+            self.dataloader = DataLoader(self.dataset, batch_size=1)
+            batch = next(iter(self.dataloader))
+            self.model.eval()
+
+            # Run validation steps with batch_idx increasing
+            self.model.validation_step(batch, batch_idx=0)
+            first_prediction = self.model.last_val_prediction.clone()
+            assert self.model.current_val_trajectory == 0
+            self.model.validation_step(
+                batch, batch_idx=self.trajectory_length
+            )  # Should reset trajectory
+            assert self.model.current_val_trajectory == 1
 
     if __name__ == "__main__":
         unittest.main()
