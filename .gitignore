@@ -1,10 +1,11 @@
 venv/*
-
+dgl/
 nohup.out
 .env
 *.vtu
 *.pth
 .pytest_cache/
+.benchmarks/
 **/__pycache__/
 
 .DS_Store
