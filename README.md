@@ -25,6 +25,8 @@
 - [X] Add loggers
 - [ ] Implement Masking
 
+- [ ] File to render one trajectory in a .xdmf
+
 - [ ] Pass to double check all and comments
 
 > [!WARNING]  

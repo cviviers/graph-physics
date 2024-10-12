@@ -51,6 +51,7 @@ class LightningModule(L.LightningModule):
             masks (list[NodeType]): List of NodeTypes to include in the loss calculation.
         """
         super().__init__()
+        self.save_hyperparameters()
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -93,7 +94,7 @@ class LightningModule(L.LightningModule):
             node_type,
             masks=self.loss_masks,
         )
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch: Batch, batch_idx: int):
@@ -131,7 +132,7 @@ class LightningModule(L.LightningModule):
             masks=self.loss_masks,
         )
 
-        self.log("val_loss", val_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_loss", val_loss, on_step=True, on_epoch=True, prog_bar=True)
 
     def on_validation_epoch_end(self):
         # Concatenate outputs and targets

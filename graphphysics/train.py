@@ -1,5 +1,6 @@
 import json
 import os
+import warnings
 
 import torch
 from absl import app, flags
@@ -7,13 +8,25 @@ from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 from loguru import logger
-from torch_geometric.data import DataLoader
+from torch_geometric.loader import DataLoader
 
 from graphphysics.training.callback import LogPyVistaPredictionsCallback
 from graphphysics.training.lightning_module import LightningModule
-from graphphysics.training.parse_parameters import get_dataset, get_preprocessing
+from graphphysics.training.parse_parameters import (
+    get_dataset,
+    get_num_workers,
+    get_preprocessing,
+)
+from graphphysics.utils.progressbar import ColabProgressBar
+
+warnings.filterwarnings(
+    "ignore", ".*Trying to infer the `batch_size` from an ambiguous collection.*"
+)
+
+torch.set_float32_matmul_precision("high")
 
 FLAGS = flags.FLAGS
+flags.DEFINE_string("project_name", "my_project", "Name of the WandB project")
 flags.DEFINE_integer("num_epochs", 10, "Number of epochs")
 flags.DEFINE_float("init_lr", 0.001, "Initial learning rate")
 flags.DEFINE_integer("batch_size", 2, "Batch size")
@@ -47,6 +60,7 @@ def main(argv):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    wandb_project_name = FLAGS.project_name
     num_epochs = FLAGS.num_epochs
     initial_lr = FLAGS.init_lr
     batch_size = FLAGS.batch_size
@@ -81,24 +95,40 @@ def main(argv):
     )
 
     # Create DataLoaders
-    persistent_workers = num_workers > 0
-    train_dataloader = DataLoader(
-        train_dataset,
-        shuffle=True,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        prefetch_factor=prefetch_factor,
-        persistent_workers=persistent_workers,
-    )
+    num_workers = get_num_workers(param=parameters, default_num_workers=num_workers)
 
-    valid_dataloader = DataLoader(
-        val_dataset,
-        shuffle=False,
-        batch_size=1,
-        num_workers=num_workers,
-        prefetch_factor=prefetch_factor,
-        persistent_workers=persistent_workers,
-    )
+    train_dataloader_kwargs = {
+        "dataset": train_dataset,
+        "shuffle": True,
+        "batch_size": batch_size,
+        "num_workers": num_workers,
+    }
+
+    valid_dataloader_kwargs = {
+        "dataset": val_dataset,
+        "shuffle": False,
+        "batch_size": 1,
+        "num_workers": num_workers,
+    }
+
+    # Update arguments if num_workers > 0
+    if num_workers > 0:
+        train_dataloader_kwargs.update(
+            {
+                "prefetch_factor": prefetch_factor,
+                "persistent_workers": True,
+            }
+        )
+        valid_dataloader_kwargs.update(
+            {
+                "prefetch_factor": prefetch_factor,
+                "persistent_workers": True,
+            }
+        )
+
+    # Create DataLoaders
+    train_dataloader = DataLoader(**train_dataloader_kwargs)
+    valid_dataloader = DataLoader(**valid_dataloader_kwargs)
 
     # Define or resume model
     num_steps = num_epochs * len(train_dataloader)
@@ -122,9 +152,20 @@ def main(argv):
         )
 
     # Initialize WandbLogger
-    wandb_logger = WandbLogger(project="my_project")
+    wandb_logger = WandbLogger(project=wandb_project_name)
     checkpoint_callback = ModelCheckpoint(dirpath="checkpoints/")
     lr_monitor = LearningRateMonitor(logging_interval="step")
+
+    wandb_logger.experiment.config.update(
+        {
+            "architecture": parameters["model"]["type"],
+            "#_layers": parameters["model"]["message_passing_num"],
+            "#_neurons": parameters["model"]["hidden_size"],
+            "#_hops": parameters["dataset"]["khop"],
+            "max_lr": initial_lr,
+            "batch_size": batch_size,
+        }
+    )
 
     # Configure Trainer
     trainer = Trainer(
@@ -133,11 +174,12 @@ def main(argv):
         max_epochs=num_epochs,
         logger=wandb_logger,
         callbacks=[
+            ColabProgressBar(),
             checkpoint_callback,
-            LogPyVistaPredictionsCallback(dataset=val_dataset, indices=[0, 50, 100]),
+            LogPyVistaPredictionsCallback(dataset=val_dataset, indices=[1, 50, 100]),
             lr_monitor,
         ],
-        log_every_n_steps=1,
+        log_every_n_steps=100,
     )
 
     # Start training

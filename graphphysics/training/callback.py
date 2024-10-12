@@ -1,8 +1,8 @@
 import os
 from typing import List
 
+import lightning.pytorch as pl
 import numpy as np
-import pytorch_lightning as pl
 import pyvista as pv
 import torch
 import wandb
@@ -87,6 +87,18 @@ class LogPyVistaPredictionsCallback(Callback):
         """
         # Extract node positions
         vertices = graph.pos.cpu().numpy()
+
+        # Ensure vertices have three coordinates
+        if vertices.shape[1] == 2:
+            # Add a third dimension set to zero
+            zeros = np.zeros((vertices.shape[0], 1))
+            vertices = np.hstack([vertices, zeros])
+        elif vertices.shape[1] == 1:
+            # Add two dimensions set to zero
+            zeros = np.zeros((vertices.shape[0], 2))
+            vertices = np.hstack([vertices, zeros])
+        elif vertices.shape[1] != 3:
+            raise ValueError(f"Unsupported vertex dimension: {vertices.shape[1]}")
 
         # Extract edges
         edges = graph.edge_index.t().cpu().numpy()
