@@ -14,11 +14,8 @@ class TestEncodeProcessDecode(unittest.TestCase):
         self.hidden_size = 16
         self.message_passing_num = 3
 
-        # Create random node features
         x = torch.randn(self.num_nodes, self.node_input_size)
-        # Create random edge features
         edge_attr = torch.randn(self.num_edges, self.edge_input_size)
-        # Create random edge indices
         edge_index = torch.randint(0, self.num_nodes, (2, self.num_edges))
         self.graph = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
@@ -36,7 +33,6 @@ class TestEncodeProcessDecode(unittest.TestCase):
         self.assertEqual(x_decoded.shape, (self.num_nodes, self.output_size))
 
     def test_only_processor(self):
-        # For this test, we need to set graph.x and graph.edge_attr to the hidden_size
         self.graph.x = torch.randn(self.num_nodes, self.hidden_size)
         self.graph.edge_attr = torch.randn(self.num_edges, self.hidden_size)
         model = EncodeProcessDecode(
@@ -89,9 +85,7 @@ class TestEncodeTransformDecode(unittest.TestCase):
         self.num_heads = 4
         self.message_passing_num = 3
 
-        # Create random node features
         x = torch.randn(self.num_nodes, self.node_input_size)
-        # Create random edge indices
         edge_index = torch.randint(0, self.num_nodes, (2, self.num_nodes * 2))
         self.graph = Data(x=x, edge_index=edge_index)
 
@@ -109,7 +103,6 @@ class TestEncodeTransformDecode(unittest.TestCase):
         self.assertEqual(x_decoded.shape, (self.num_nodes, self.output_size))
 
     def test_only_processor(self):
-        # For this test, we need to set graph.x to the hidden_size
         self.graph.x = torch.randn(self.num_nodes, self.hidden_size)
         model = EncodeTransformDecode(
             message_passing_num=self.message_passing_num,

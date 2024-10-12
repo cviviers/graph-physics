@@ -1,5 +1,4 @@
 import unittest
-import os
 
 from graphphysics.dataset.xdmf_dataset import XDMFDataset
 from tests.mock import (

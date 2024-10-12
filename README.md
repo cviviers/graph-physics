@@ -23,11 +23,9 @@
 - [X] Function to do rendering without paraview (test for 2D and 3D)
 - [X] Implement vizu for one traj at the end of each epoch as well 
 - [X] Add loggers
-- [ ] Implement Masking
 
-- [ ] File to render one trajectory in a .xdmf
-
-- [ ] Pass to double check all and comments
+- [X] File to render one trajectory in a .xdmf
+- [X] Pass to double check all and comments
 
 > [!WARNING]  
 > H5-based dataloader does not support multiple workers. XDMF can.
@@ -35,6 +33,7 @@
 ## Colab Wise
 
 - [ ] One notebook for the cylinder
+- [ ] One notebook for the 3D plate
 - [ ] One notebook for the coarse aneurysm
 
 ## Educational wise
@@ -49,4 +48,7 @@
 
 - [ ] Make setup and requirements
 - [ ] Make CI/CD
-- [ ] Switch black to ruff
+
+## Next steps
+
+- [ ] Make public the list of features we still have to implement (e.g. masking, multigrid)

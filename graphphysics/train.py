@@ -94,7 +94,6 @@ def main(argv):
         switch_to_val=True,
     )
 
-    # Create DataLoaders
     num_workers = get_num_workers(param=parameters, default_num_workers=num_workers)
 
     train_dataloader_kwargs = {

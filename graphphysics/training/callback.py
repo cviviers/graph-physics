@@ -2,12 +2,13 @@ import os
 from typing import List
 
 import lightning.pytorch as pl
-import numpy as np
 import pyvista as pv
 import torch
 import wandb
 from pytorch_lightning.callbacks import Callback
 from torch_geometric.data import Data, Dataset
+
+from graphphysics.utils.pyvista_mesh import convert_to_pyvista_mesh
 
 
 class LogPyVistaPredictionsCallback(Callback):
@@ -16,7 +17,7 @@ class LogPyVistaPredictionsCallback(Callback):
 
     This callback fetches specified data samples from a dataset, makes predictions
     using the provided model, visualizes the predictions using PyVista, and logs
-    the resulting images to Weights & Biases (wandb).
+    the resulting images to wandb.
 
     Args:
         dataset (Dataset): The dataset to fetch data samples from.
@@ -40,11 +41,10 @@ class LogPyVistaPredictionsCallback(Callback):
 
         Args:
             trainer (pl.Trainer): The PyTorch Lightning Trainer.
-            pl_module (pl.LightningModule): The LightningModule (model) being trained.
+            pl_module (pl.LightningModule): The LightningModule being trained.
         """
         os.makedirs(self.output_dir, exist_ok=True)
         model = pl_module
-        model.eval()
         device = model.device
 
         images = []
@@ -53,15 +53,11 @@ class LogPyVistaPredictionsCallback(Callback):
         with torch.no_grad():
             for idx in self.indices:
                 graph = self.dataset[idx].to(device)
-                # Make prediction
-                network_output, target_delta_normalized, predicted_outputs = model(
-                    graph
-                )
+                _, _, predicted_outputs = model(graph)
 
                 graph.x = predicted_outputs
 
                 # Convert outputs to a PyVista mesh
-                # This requires the model's outputs to be compatible with PyVista
                 predicted_mesh = self._convert_to_pyvista_mesh(graph)
 
                 # Generate visualization
@@ -69,7 +65,6 @@ class LogPyVistaPredictionsCallback(Callback):
                 images.append(wandb.Image(img))
                 captions.append(f"Sample Index: {idx}")
 
-        # Log images to Weights & Biases
         wandb_logger = trainer.logger
         wandb_logger.log_image(
             key="pyvista_predictions", images=images, caption=captions
@@ -77,7 +72,7 @@ class LogPyVistaPredictionsCallback(Callback):
 
     def _convert_to_pyvista_mesh(self, graph: Data) -> pv.PolyData:
         """
-        Converts model outputs or labels to a PyVista mesh.
+        Converts model outputs to a PyVista mesh.
 
         Args:
             data (Any): The data to convert (model outputs or labels).
@@ -85,30 +80,7 @@ class LogPyVistaPredictionsCallback(Callback):
         Returns:
             pv.PolyData: The converted PyVista mesh.
         """
-        # Extract node positions
-        vertices = graph.pos.cpu().numpy()
-
-        # Ensure vertices have three coordinates
-        if vertices.shape[1] == 2:
-            # Add a third dimension set to zero
-            zeros = np.zeros((vertices.shape[0], 1))
-            vertices = np.hstack([vertices, zeros])
-        elif vertices.shape[1] == 1:
-            # Add two dimensions set to zero
-            zeros = np.zeros((vertices.shape[0], 2))
-            vertices = np.hstack([vertices, zeros])
-        elif vertices.shape[1] != 3:
-            raise ValueError(f"Unsupported vertex dimension: {vertices.shape[1]}")
-
-        # Extract edges
-        edges = graph.edge_index.t().cpu().numpy()
-
-        # Create lines for PyVista
-        lines = np.column_stack((np.full(len(edges), 2), edges))
-        lines = lines.flatten()
-
-        # Create PyVista mesh
-        mesh = pv.PolyData(vertices, lines=lines)
+        mesh = convert_to_pyvista_mesh(graph=graph)
 
         # Add point data from graph.x if it exists
         if hasattr(graph, "x") and graph.x is not None:

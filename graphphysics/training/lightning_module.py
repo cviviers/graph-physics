@@ -1,3 +1,5 @@
+import os
+
 import lightning as L
 import torch
 from loguru import logger
@@ -6,6 +8,7 @@ from torch_geometric.data import Batch
 from graphphysics.training.parse_parameters import get_model, get_simulator
 from graphphysics.utils.loss import L2Loss
 from graphphysics.utils.nodetype import NodeType
+from graphphysics.utils.pyvista_mesh import convert_to_pyvista_mesh
 from graphphysics.utils.scheduler import CosineWarmupScheduler
 
 
@@ -21,13 +24,6 @@ def build_mask(param: dict, graph: Batch):
 
 
 class LightningModule(L.LightningModule):
-    """
-    PyTorch Lightning Module for training a Simulator model.
-
-    This module encapsulates the model, loss function, optimizer, and learning rate scheduler.
-    It handles the training loop and integrates with PyTorch Lightning's Trainer.
-    """
-
     def __init__(
         self,
         parameters: dict,
@@ -63,11 +59,6 @@ class LightningModule(L.LightningModule):
 
         self.model = get_simulator(param=parameters, model=processor, device=device)
 
-        pytorch_total_params = sum(
-            p.numel() for p in self.model.parameters() if p.requires_grad
-        )
-        logger.success(f"Nb. of trainable parameters: {pytorch_total_params}")
-
         self.loss = L2Loss()
         self.loss_masks = masks
 
@@ -80,6 +71,9 @@ class LightningModule(L.LightningModule):
         self.trajectory_length = trajectory_length
         self.current_val_trajectory = 0
         self.last_val_prediction = None
+
+        # For one trajectory vizualization
+        self.trajectory_to_save: list[Batch] = []
 
     def forward(self, graph: Batch):
         return self.model(graph)
@@ -104,12 +98,15 @@ class LightningModule(L.LightningModule):
             self.last_val_prediction = None
 
         # Prepare the batch for the current step
-        batch = batch.clone()  # Avoid in-place modification
+        batch = batch.clone()
         if self.last_val_prediction is not None:
             # Update the batch with the last prediction
             batch.x[:, self.model.output_index_start : self.model.output_index_end] = (
                 self.last_val_prediction.detach()
             )
+
+        if self.current_val_trajectory == 0:
+            self.trajectory_to_save.append(batch)
 
         mask = build_mask(self.param, batch)
         node_type = batch.x[:, self.model.node_type_index]
@@ -151,11 +148,28 @@ class LightningModule(L.LightningModule):
             prog_bar=True,
         )
 
+        # Save trajectory graphs as .vtu files
+        save_dir = os.path.join("meshes", f"epoch_{self.current_epoch}")
+        os.makedirs(save_dir, exist_ok=True)
+        for idx, graph in enumerate(self.trajectory_to_save):
+            try:
+                mesh = convert_to_pyvista_mesh(graph, add_all_data=True)
+                # Construct filename
+                filename = os.path.join(save_dir, f"graph_{idx}.vtk")
+                # Save the mesh
+                mesh.save(filename)
+            except Exception as e:
+                logger.error(
+                    f"Error saving graph {idx} at epoch {self.current_epoch}: {e}"
+                )
+        logger.info(f"Validation Trajectory saved at {save_dir}")
+
         # Clear stored outputs
         self.val_step_outputs.clear()
         self.val_step_targets.clear()
         self.current_val_trajectory = 0
         self.last_val_prediction = None
+        self.trajectory_to_save.clear()
 
     def configure_optimizers(self):
         """Initialize the optimizer"""
@@ -165,7 +179,6 @@ class LightningModule(L.LightningModule):
             weight_decay=0.0001,
             betas=(0.9, 0.95),
         )
-        # sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=self.cosine_t_max)
         sch = CosineWarmupScheduler(opt, warmup=self.warmup, max_iters=self.num_steps)
         return {
             "optimizer": opt,

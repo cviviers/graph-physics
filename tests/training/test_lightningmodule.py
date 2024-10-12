@@ -1,15 +1,20 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import torch
-from torch_geometric.data import DataLoader, Dataset
+from torch_geometric.data import Dataset
+from torch_geometric.loader import DataLoader
 from torch_geometric.data import Data, Batch
 import lightning as L
-
+import shutil
+import tempfile
+import os
+import numpy as np
 from graphphysics.training.lightning_module import LightningModule
 from tests.mock import (
     MOCK_H5_META_SAVE_PATH,
     MOCK_H5_SAVE_PATH,
 )
+import pyvista as pv
 
 with patch("graphphysics.training.parse_parameters.get_model") as mock_get_model, patch(
     "graphphysics.training.parse_parameters.get_simulator"
@@ -146,6 +151,31 @@ with patch("graphphysics.training.parse_parameters.get_model") as mock_get_model
             batch_size = 5
             output_dim = 2
             self.model.eval()
+
+            # Simulate trajectory_to_save with sample graphs
+            num_graphs = 3
+            for i in range(num_graphs):
+                # Create a simple graph
+                pos = torch.tensor(
+                    [[0.0 + i, 0.0], [1.0 + i, 0.0], [1.0 + i, 1.0], [0.0 + i, 1.0]],
+                    dtype=torch.float,
+                )
+                edge_index = torch.tensor(
+                    [[0, 1, 2, 3], [1, 2, 3, 0]], dtype=torch.long
+                )
+                x = torch.tensor(
+                    [
+                        [i * 10 + 1, i * 10 + 1],
+                        [i * 10 + 2, i * 10 + 2],
+                        [i * 10 + 3, i * 10 + 3],
+                        [i * 10 + 4, i * 10 + 4],
+                    ],
+                    dtype=torch.float,
+                )
+                graph = Data(pos=pos, edge_index=edge_index, x=x)
+                self.model.trajectory_to_save.append(graph)
+
+            # Simulate val_step_outputs and val_step_targets
             for i in range(num_steps):
                 predicted_outputs = torch.randn(batch_size, output_dim)
                 targets = torch.randn(batch_size, output_dim)

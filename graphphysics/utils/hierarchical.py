@@ -1,8 +1,3 @@
-"""
-This file handles operations related to the .h5 extension.
-We allow writing .h5 from .tfrecords.
-"""
-
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -32,10 +27,6 @@ def get_h5_dataset(
             - List[str]: A list of keys representing datasets within the H5 file.
             - int: The total number of datasets within the H5 file.
             - Dict[str, Any]: The metadata dictionary loaded from the JSON file.
-
-    Note:
-        It is the caller's responsibility to close the returned H5 file handle after use
-        to ensure resources are properly freed.
     """
     file_handle = h5py.File(dataset_path, "r")
     datasets_index = list(file_handle.keys())

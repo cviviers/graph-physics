@@ -67,7 +67,6 @@ class TestTransformerComponents(unittest.TestCase):
         normalized_x = normalizer(x)
         self.assertEqual(normalized_x.shape, x.shape)
 
-        # Test inverse transformation
         reconstructed_x = normalizer.inverse(normalized_x)
         self.assertTrue(torch.allclose(x, reconstructed_x, atol=1e-6))
 
@@ -75,7 +74,6 @@ class TestTransformerComponents(unittest.TestCase):
         q = torch.randn(5, 10)
         k = torch.randn(5, 10)
         if HAS_DGL_SPARSE:
-            # Create a random sparse mask
             adj = dglsp.from_coo(torch.tensor([0, 1, 2]), torch.tensor([1, 2, 3]))
             attn = scaled_query_key_softmax(q, k, adj)
         else:
@@ -132,7 +130,6 @@ class TestTransformerComponents(unittest.TestCase):
         else:
             output, attn = transformer(x, None, return_attention=True)
         self.assertEqual(output.shape, (5, output_dim))
-        # Since attention shape depends on the implementation, we check if it's not None
         self.assertIsNotNone(attn)
 
 
@@ -145,10 +142,8 @@ class TestGraphNetBlock(unittest.TestCase):
         num_nodes = 4
         hidden_size = 16
 
-        # Node features: [num_nodes, hidden_size]
         x = torch.randn(num_nodes, hidden_size)
 
-        # Edge features: [num_edges, hidden_size]
         num_edges = edge_index.size(1)
         edge_attr = torch.randn(num_edges, hidden_size)
 
@@ -162,7 +157,6 @@ class TestGraphNetBlock(unittest.TestCase):
 
         x_updated, edge_attr_updated = block(self.x, self.edge_index, self.edge_attr)
 
-        # Check the shapes of the outputs
         self.assertEqual(x_updated.shape, self.x.shape)
         self.assertEqual(edge_attr_updated.shape, self.edge_attr.shape)
 

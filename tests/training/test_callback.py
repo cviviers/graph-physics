@@ -43,7 +43,6 @@ class TestLogPyVistaPredictionsCallback(unittest.TestCase):
         self.trainer.logger.log_image = MagicMock()
 
     def test_on_validation_epoch_end(self):
-        # Call the callback's method
         self.callback.on_validation_epoch_end(self.trainer, self.model)
 
         # Check that images were logged

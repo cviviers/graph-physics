@@ -7,7 +7,6 @@ from graphphysics.models.simulator import Simulator
 from graphphysics.utils.nodetype import NodeType
 
 
-# Define a simple mock model
 class MockModel(nn.Module):
     def __init__(self, output_size):
         super().__init__()
@@ -20,7 +19,6 @@ class MockModel(nn.Module):
 
 class TestSimulator(unittest.TestCase):
     def setUp(self):
-        # Set up parameters for the Simulator
         self.node_input_size = 5
         self.edge_input_size = 4
         self.output_size = 2

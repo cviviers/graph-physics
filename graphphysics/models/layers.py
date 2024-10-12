@@ -82,7 +82,7 @@ def build_mlp(
     layer_norm: bool = True,
 ) -> nn.Module:
     """
-    Builds a Multilayer Perceptron (MLP) using PyTorch.
+    Builds a Multilayer Perceptron.
 
     Args:
         in_size (int): Size of the input features.
@@ -115,7 +115,7 @@ def build_mlp(
 
 class GatedMLP(nn.Module):
     """
-    A Gated Multilayer Perceptron (MLP) layer.
+    A Gated Multilayer Perceptron.
 
     This layer applies a gated activation to the input features.
     """
@@ -158,7 +158,7 @@ def build_gated_mlp(
     expansion_factor: int = 3,
 ) -> nn.Module:
     """
-    Builds a Gated MLP model using PyTorch.
+    Builds a Gated MLP.
 
     Args:
         in_size (int): Size of the input features.

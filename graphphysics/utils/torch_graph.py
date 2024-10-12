@@ -1,7 +1,3 @@
-"""
-This file handles operations related to torch graphs.
-"""
-
 from typing import Dict, List, Optional, Union
 
 import meshio
@@ -124,7 +120,7 @@ def meshdata_to_graph(
     Returns:
         Data: A PyTorch Geometric Data object representing the mesh.
     """
-    # Combine all point data into a single array and add the time as an additional feature
+    # Combine all point data into a single array
     if point_data is not None:
         if any(data.ndim > 1 for data in point_data.values()):
             # if any(data.shape[1] > 1 for data in point_data.values()):

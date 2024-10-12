@@ -77,9 +77,6 @@ def get_items_xdmfdataloader():
         shuffle=True,
         batch_size=BATCH_SIZE,
         num_workers=0,
-        # num_workers=NUM_WORKERS,
-        # prefetch_factor=PREFETCH_FACTOR,
-        # persistent_workers=PERSISTENT_WORKERS,
     )
     indx = 0
     for batch_g in dataloader:

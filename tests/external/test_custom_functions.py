@@ -32,7 +32,6 @@ class TestCustomFeatures(unittest.TestCase):
             dtype=torch.float32,
         )
 
-        # Set up data for testing build_features
         self.graph_build = Data()
         # Columns: [v_x, v_y, v_z, wall_inputs]
         self.graph_build.x = torch.tensor(
@@ -102,11 +101,9 @@ class TestCustomFeatures(unittest.TestCase):
         self.assertEqual(node_type_column[4].item(), NodeType.NORMAL)
 
     def test_build_features(self):
-        # Set the device
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self.graph_build = self.graph_build.to(device)
 
-        # Apply the function
         graph = build_features(self.graph_build)
 
         # Check that node_type is correctly computed
@@ -157,7 +154,6 @@ class TestCustomFeatures(unittest.TestCase):
         self.assertTrue(torch.all(max_next_accel == expected_max))
 
     def test_build_features_with_missing_previous_data(self):
-        # Test the function when previous_data is missing
         graph = self.graph_build.clone()
         del graph.previous_data
         with self.assertRaises(AttributeError):

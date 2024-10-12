@@ -18,7 +18,6 @@ from graphphysics.dataset.preprocessing import (
 
 class TestGraphPreprocessing(unittest.TestCase):
     def setUp(self):
-        # Create a simple graph for testing
         self.num_nodes = 4
         self.edge_index = torch.tensor([[0, 1], [1, 2]], dtype=torch.long).t()
         self.x = torch.tensor(
@@ -75,7 +74,6 @@ class TestGraphPreprocessing(unittest.TestCase):
             node_type_index=3,
             radius=5.0,  # Large radius to connect all nodes
         )
-        # Check that edge_index has been updated
         self.assertGreater(graph.edge_index.shape[1], self.edge_index.shape[1])
 
     def test_add_world_pos_features(self):
@@ -87,7 +85,6 @@ class TestGraphPreprocessing(unittest.TestCase):
             world_pos_index_start=0,
             world_pos_index_end=3,
         )
-        # Check that edge_attr has increased dimensions
         self.assertEqual(
             graph.edge_attr.shape[1], 5
         )  # Original 1 + 3 for relative position + 1 norm
@@ -142,7 +139,6 @@ class TestGraphPreprocessing(unittest.TestCase):
         self.assertEqual(graph.x.shape[1], self.x.shape[1] + 3)
 
     def test_add_edge_features_without_world_pos(self):
-        # Test add_edge_features when world_pos_parameters is None
         transform = build_preprocessing(add_edges_features=True)
         graph = transform(
             Data(
@@ -243,7 +239,6 @@ class TestGraphPreprocessing(unittest.TestCase):
             node_type_index=3,
             radius=100.0,  # Large radius to connect all nodes
         )
-        # Edge index should be larger than original
         self.assertGreater(graph.edge_index.shape[1], self.edge_index.shape[1])
 
     def test_build_preprocessing_with_extra_features(self):
