@@ -31,6 +31,24 @@ At the moment, the repository supports the following:
 
 Feel free to open a PR if you want to implement a new feature, or an issue to request one.
 
+## Datasets
+
+We give access to all datasets (full trajectories) and the mesh used to compute said simulation.
+
+| Dataset                | Description                                                             | Link                                                                         |
+|------------------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| CylinderFlow | As .H5 and reduced from MeshGraphNet | : |
+| DeformingPlate | As .H5 and reduced from MeshGraphNet | : |
+| 2D-Aneurysm | As .XDMF and Slices from AnxPlore | : |
+| 3D-CoarseAneurysm | As .XDMF and Interpolated from AnxPlore | : |
+
+## Meshs
+
+| Dataset                | Description                                                             | Link                                                                         |
+|------------------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| MultipleBezierShapes | 1200 meshs of 1 to 4 bezier shapes at random places                                   | https://storage.googleapis.com/large-physics-model/datasets/meshs/dataset_1_to_4_bezier_shapes.zip |
+| 3DAneurysm | 100 Meshes                                   | https://github.com/aurelegoetz/AnXplore/tree/main |
+
 ### Tutorials
 
 We offer 3 Google colab to showcase training on:
@@ -332,3 +350,5 @@ Examples can be found [here](https://github.com/DonsetPG/graph-physics/tree/main
 
 - [ ] Make setup and requirements
 - [ ] Make CI/CD
+- [ ] Add CI badge
+- [ ] Add testing badges
