@@ -2,6 +2,7 @@ import os
 from typing import List
 
 import lightning.pytorch as pl
+import numpy as np
 import pyvista as pv
 import torch
 import wandb
@@ -48,7 +49,7 @@ class LogPyVistaPredictionsCallback(Callback):
         device = model.device
 
         images = []
-        captions = []
+        ground_truth = []
 
         with torch.no_grad():
             for idx in self.indices:
@@ -62,13 +63,72 @@ class LogPyVistaPredictionsCallback(Callback):
 
                 # Generate visualization
                 img = self._generate_pyvista_image(predicted_mesh)
-                images.append(wandb.Image(img))
-                captions.append(f"Sample Index: {idx}")
+                images.append(
+                    wandb.Image(img, caption=f"Prediction: Sample Index: {idx}")
+                )
+
+                ### Same for Ground Truth:
+                graph.x = graph.y
+                # Convert outputs to a PyVista mesh
+                predicted_mesh = self._convert_to_pyvista_mesh(graph)
+
+                # Generate visualization
+                img = self._generate_pyvista_image(predicted_mesh)
+                ground_truth.append(
+                    wandb.Image(img, caption=f"Ground Truth: Sample Index: {idx}"),
+                )
 
         wandb_logger = trainer.logger
-        wandb_logger.log_image(
-            key="pyvista_predictions", images=images, caption=captions
-        )
+        wandb_logger.log({"pyvista_predictions": images})
+        wandb_logger.log({"pyvista_ground_truth": ground_truth})
+
+        frames_predictions = []
+        frames_ground_truth = []
+
+        with torch.no_grad():
+            for idx in range(self.indices[0], self.indices[-1]):
+                graph = self.dataset[idx].to(device)
+                _, _, predicted_outputs = model(graph)
+
+                graph.x = predicted_outputs
+
+                # Convert outputs to a PyVista mesh
+                predicted_mesh = self._convert_to_pyvista_mesh(graph)
+
+                # Generate visualization
+                img = self._generate_pyvista_image(predicted_mesh)
+                # Ensure the image is a numpy array with dtype uint8
+                img_array = np.array(img).astype(np.uint8)
+                frames_predictions.append(img_array)
+
+                ### Same for Ground Truth:
+                graph.x = graph.y
+                # Convert outputs to a PyVista mesh
+                ground_truth_mesh = self._convert_to_pyvista_mesh(graph)
+
+                # Generate visualization
+                img = self._generate_pyvista_image(ground_truth_mesh)
+                img_array = np.array(img).astype(np.uint8)
+                frames_ground_truth.append(img_array)
+
+        # Convert frames to numpy arrays
+        frames_predictions = np.stack(
+            frames_predictions, axis=0
+        )  # Shape: (time, height, width, channels)
+        frames_ground_truth = np.stack(frames_ground_truth, axis=0)
+
+        # Rearrange axes to (time, channels, height, width)
+        frames_predictions = np.transpose(frames_predictions, (0, 3, 1, 2))
+        frames_ground_truth = np.transpose(frames_ground_truth, (0, 3, 1, 2))
+
+        # Create WandB Video objects
+        video_predictions = wandb.Video(frames_predictions, fps=4)
+        video_ground_truth = wandb.Video(frames_ground_truth, fps=4)
+
+        # Log videos to WandB
+        wandb_logger = trainer.logger
+        wandb_logger.log({"pyvista_predictions_video": video_predictions})
+        wandb_logger.log({"pyvista_ground_truth_video": video_ground_truth})
 
     def _convert_to_pyvista_mesh(self, graph: Data) -> pv.PolyData:
         """

@@ -1,6 +1,8 @@
 import unittest
 import pytorch_lightning as pl
 from unittest.mock import MagicMock
+import wandb
+import numpy as np
 from graphphysics.training.callback import LogPyVistaPredictionsCallback
 from graphphysics.dataset.xdmf_dataset import XDMFDataset
 from tests.mock import (
@@ -40,21 +42,29 @@ class TestLogPyVistaPredictionsCallback(unittest.TestCase):
         self.trainer = MagicMock()
         self.trainer.logger = MagicMock(spec=pl.loggers.WandbLogger)
         self.trainer.logger.experiment = MagicMock()
-        self.trainer.logger.log_image = MagicMock()
+        self.trainer.logger.log = MagicMock()
 
     def test_on_validation_epoch_end(self):
         self.callback.on_validation_epoch_end(self.trainer, self.model)
 
-        # Check that images were logged
-        self.assertTrue(self.trainer.logger.log_image.called)
-        args, kwargs = self.trainer.logger.log_image.call_args
-        key = kwargs.get("key", args[0] if args else None)
-        images = kwargs.get("images", args[1] if len(args) > 1 else None)
-        captions = kwargs.get("caption", args[2] if len(args) > 2 else None)
+        # Check that videos were logged
+        self.assertTrue(self.trainer.logger.log.called)
+        # Get the list of call arguments
+        calls = self.trainer.logger.log.call_args_list
+        # We expect two calls, one for predictions, one for ground truth
+        self.assertEqual(len(calls), 4)
 
-        self.assertEqual(key, "pyvista_predictions")
-        self.assertEqual(len(images), len(self.indices))
-        self.assertEqual(len(captions), len(self.indices))
+        # Check the first call
+        args, kwargs = calls[2]
+        log_dict = args[0] if args else kwargs
+        self.assertIn("pyvista_predictions_video", log_dict)
+        self.assertIsInstance(log_dict["pyvista_predictions_video"], wandb.Video)
+
+        # Check the second call
+        args, kwargs = calls[3]
+        log_dict = args[0] if args else kwargs
+        self.assertIn("pyvista_ground_truth_video", log_dict)
+        self.assertIsInstance(log_dict["pyvista_ground_truth_video"], wandb.Video)
 
     def tearDown(self):
         import shutil
