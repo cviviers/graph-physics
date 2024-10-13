@@ -1,34 +1,326 @@
-# TODO
+# Training Graph Neural Networks for Mesh-based Physics Simulations
+
+## Overview
+
+This repository let's you train Graph Neural Networks on meshes (e.g. fluid dynamics, material simulations, etc).
+It is based on the work from different papers:
+- [Learning Mesh-Based Simulation with Graph Networks](https://arxiv.org/abs/2010.03409)
+- [Multi-Grid Graph Neural Networks with Self-Attention for Computational Mechanics](https://arxiv.org/pdf/2409.11899)
+- [MeshMask: Physics Simulations with Masked Graph Neural Networks]()
+- [Training Transformers to Simulate Complex Physics]()
+
+We offer a simple training script to:
+- Setup your model's architecture
+- Define your dataset with different augmentation functions
+- Follow the training live, including live vizualisations
+
+The code is based on Pytorch, and a JAX extension might follow at some point.
+
+At the moment, the repository supports the following:
+- architecture:
+  * [x] Message Passing
+  * [x] Transformers
+  * [ ] Multigrid
+- dataset:
+  * [x] matrix based, using .h5
+  * [x] .xdmf based (if you have .vtu, .vtk etc, you can easily convert them to .xdmf)
+- training methods and augmentations
+  * [x] K-hop neighbours 
+  * [ ] Nodes Masking
+  * [ ] Augmented Adjacency Matrix
+
+Feel free to open a PR if you want to implement a new feature, or an issue to request one.
+
+### Tutorials
+
+We offer 3 Google colab to showcase training on:
+- a Flow past a Cylinder Dataset
+  - [Colab]()
+  - dataset is from [Learning Mesh-Based Simulation with Graph Networks](https://arxiv.org/abs/2010.03409)
+- a 3D Deforming plate
+  - [Colab]()
+  - dataset is from [Learning Mesh-Based Simulation with Graph Networks](https://arxiv.org/abs/2010.03409)
+- a blood flow inside a 3D Aneurysm
+  - [Colab]()
+  - dataset is from [AnXplore: a comprehensive fluid-structure interaction study of 101 intracranial aneurysms](https://www.frontiersin.org/journals/bioengineering-and-biotechnology/articles/10.3389/fbioe.2024.1433811/full?field&journalName=Frontiers_in_Bioengineering_and_Biotechnology&id=1433811)
+
+## Setup
+
+### Default requirements
+
+```python
+import torch
+
+def format_pytorch_version(version):
+  return version.split('+')[0]
+
+TORCH_version = torch.__version__
+TORCH = format_pytorch_version(TORCH_version)
+
+def format_cuda_version(version):
+  return 'cu' + version.replace('.', '')
+
+CUDA_version = torch.version.cuda
+CUDA = format_cuda_version(CUDA_version)
+```
+
+```
+pip install torch-scatter     -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html
+pip install torch-sparse      -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html
+pip install torch-cluster     -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html
+pip install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html
+pip install torch-geometric
+
+pip install loguru==0.7.2
+pip install autoflake==2.3.0
+pip install pytest==8.0.1
+pip install meshio==5.3.5
+pip install tensorflow
+pip install h5py==3.10.0
+
+pip install pyvista lightning wandb
+```
+
+### DGL
+
+You will need to install DGL. You can find information on how to set it up for your environement (here)[https://www.dgl.ai/pages/start.html].
+
+In the case of a google colab, you canu se:
+```
+pip install  dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
+```
+
+### WandB
+
+We use Weights and Bias to log most of our metrics and vizualizations during the trainig. Make sure you create and account, and log in before you start training.
+
+```python
+import wandb
+wandb.login()
+```
+
+### Vizualization in Colab
+
+> [!WARNING]  
+> Note that if you train inside a notebook, you will need a specific set-up to allow for Pyvista to work
+
+```
+apt-get install -qq xvfb
+pip install pyvista panel -q
+```
+
+and run
+
+```python
+import os
+os.system('/usr/bin/Xvfb :99 -screen 0 1024x768x24 &')
+os.environ['DISPLAY'] = ':99'
+
+import panel as pn
+pn.extension('vtk')
+```
+
+in the same call as your training.
+
+## Documentation
+
+Most of setting up a new use case depends on two `.json` files: one to define the dataset details, and one for the training settings.
+
+Let's start with the training settings. An exemple is available [here](https://github.com/DonsetPG/graph-physics/blob/main/training_config/cylinder.json).
+
+### Dataset
+
+```json 
+"dataset": {
+    "extension": "h5",
+    "h5_path": "dataset/h5_dataset/cylinder_flow/train.h5",
+    "meta_path": "dataset/h5_dataset/cylinder_flow/meta.json",
+    "khop": 1
+}
+```
+
+- `extension`: If the dataset used is h5 or xdmf.
+- `h5_path` (`xdmf_folder` for an xdmf dataset): Path to the dataset.
 
 > [!NOTE]  
-> This is a work in progress to make our work open source and ready to be used by anyone.
+> You will need a dataset at the same location with `test` instead of `train` in its name for the validation step to work. Otherwise, you can specify its name directly in `training.py`
 
-## Code wise
+- `meta_path`: Location to the .json file with the dataset details (see below)
+- `khop`: K-hop neighbours size to use. You should start with 1.
 
-- [X] Implement all utils
-- [X] Implement all datasets
-- [X] Add testing perf dataloaeder with workers
-- [X] Find a good way to implement how to compute the node type
-- [X] Build the custom functions for aneurysm and co for adding the right attributes
-- [X] Test the custom functions
-- [X] Implement all layers
-- [X] Implement Message Passing and Transformer
-- [X] Implement EPD and ETD
-- [X] Find a way to not bug if you dont have dgl
-- [X] Implement Simulator
-- [X] Implement train loop with L.Lighting
-- [X] Implement Wandb
-- [X] Use proper dataloader
-- [X] Implement proper valdiation metric at the end of each epoch
-- [X] Function to do rendering without paraview (test for 2D and 3D)
-- [X] Implement vizu for one traj at the end of each epoch as well 
-- [X] Add loggers
+You also need to define a few other parameters: 
 
-- [X] File to render one trajectory in a .xdmf
-- [X] Pass to double check all and comments
+```json
+"index": {
+    "feature_index_start": 0,
+    "feature_index_end": 2,
+    "output_index_start": 0,
+    "output_index_end": 2,
+    "node_type_index": 2
+}
+```
+- `feature_index_`: This is to define where we should look for nodes features. The end is excluded. For example, if you have 2D velocities at index 0 and 1, and pressure at index 2. If you want to use the pressure you should set  `feature_index_start=0` and  `feature_index_end=3`, otherwise, `feature_index_end=2`.
+
+- `output_index_`: We define our architectures to predict one of your feature for the enxt time steps. So you need to tell us where to look. For example, if you want to predict the velocity at the next step, since the velocity is at index 0 and 1, you will set  `output_index_start=0` and `output_index_end=2`.
+
+- `node_type_index`: Finally, we use a node type classification for each node:
+
+```python
+NORMAL = 0
+OBSTACLE = 1
+AIRFOIL = 2
+HANDLE = 3
+INFLOW = 4
+OUTFLOW = 5
+WALL_BOUNDARY = 6
+SIZE = 9
+```
+
+> [!WARNING]  
+> You should modify this if this is not at all representative of your use case. Those are taken from [Meshgraphnet](https://github.com/google-deepmind/deepmind-research/tree/master/meshgraphnets) and we found them to be general enough for all of our use cases. 
+
+This means that you either need to have such feature in your dataset, or to define a python function to build them (see below). After that, you need to tell us where to look. For example, if we only have velocity and node type, we will have  `node_type_index=2`. If we also had the pressure, we would set `node_type_index=3`
 
 > [!WARNING]  
 > H5-based dataloader does not support multiple workers. XDMF can.
+
+### Custom Processing Functions
+
+First, we allow you to add noise to your inputs to make the prediction of a trajectory more robust.
+
+```json
+"preprocessing": {
+    "noise": 0.02,
+    "noise_index_start": [0],
+    "noise_index_end": [2],
+    "masking": 0
+},
+```
+
+> [!WARNING]  
+> Masking is not implemented yet.
+
+```python
+def add_noise(
+    graph: Data,
+    noise_index_start: Union[int, List[int]],
+    noise_index_end: Union[int, List[int]],
+    noise_scale: Union[float, List[float]],
+    node_type_index: int,
+) -> Data:
+    """
+    Adds Gaussian noise to the specified features of the graph's nodes.
+
+    Parameters:
+        graph (Data): The graph to modify.
+        noise_index_start (Union[int, List[int]]): The starting index or indices for noise addition.
+        noise_index_end (Union[int, List[int]]): The ending index or indices for noise addition.
+        noise_scale (Union[float, List[float]]): The standard deviation(s) of the Gaussian noise.
+        node_type_index (int): The index of the node type feature.
+
+    Returns:
+        Data: The modified graph with noise added to node features.
+    """
+```
+
+Second, in the case of dealing with multiple meshes, you can add extra edges based on closeness of those different meshes:
+
+```json 
+"world_pos_parameters": {
+    "use": false,
+    "world_pos_index_start": 0,
+    "world_pos_index_end": 3
+}
+```
+
+See the [description](https://arxiv.org/abs/2010.03409) regarding world edges.
+
+Finally, in the case where: 
+- you need to build the node type 
+- you need to build extra features that were not in your dataset
+
+In `train.py`:
+
+```python
+# Build preprocessing function
+preprocessing = get_preprocessing(
+    param=parameters,
+    device=device,
+    use_edge_feature=use_edge_feature,
+    extra_node_features=None,
+)
+```
+
+where: 
+
+```python
+extra_node_features: Optional[
+        Union[Callable[[Data], Data], List[Callable[[Data], Data]]]
+    ] = None
+```
+
+You can define one or several functions that takes a graph as an input, and returns another graph with the new features. 
+
+> [!NOTE]  
+> In the case where you might need the previous graph as well (to compute acceleration for example, you can pass `get_previous_data` in the `get_dataset` function, and you will be able to access it using the `previous_data` attribute: `graph.previous_data`)
+
+For example, let's imagine we want to add the nodes position as a feature, one could define the following function: 
+
+```python
+def add_pos(graph: Data) -> Data:
+    graph.x = torch.cat(
+        (
+            graph.pos,
+            graph.x,
+        ),
+        dim=1,
+    )
+    return graph
+```
+
+You can find more examples regarding adding features and building node type [here](https://github.com/DonsetPG/graph-physics/tree/main/graphphysics/external).
+
+
+### Architecture
+
+```json
+"model": {
+    "type": "transformer",
+    "message_passing_num": 5,
+    "hidden_size": 32,
+    "node_input_size": 2,
+    "output_size": 2,
+    "edge_input_size": 0,
+    "num_heads": 4
+}
+```
+
+- `type`: Type of the model, either `transformer` or `mps` (message passing)
+- `message_passing_num`: Number of Layers
+- `hidden_size`: Number of hidden neurons
+- `node_input_size`: Number of node features
+
+> [!WARNING]  
+> This should not count the node type feature.
+
+- `edge_input_size`: Size of the edge features. 3 in 2D and 4 in 3D. 0 for transformer based model.
+- `output_size`: Size of the output
+- `num_heads`: Number of heads for transformer based model.
+
+### Dataset Settings
+
+You will also need to design a .json to define the dataset details. Those `meta.json` files are inspired from [Meshgraphnet](https://github.com/google-deepmind/deepmind-research/tree/master/meshgraphnets).
+
+You will need to define: 
+
+- `dt`: the time step of your simulation
+- `features`: a set of features used, including at least `cells` and `mesh_pos` for the .h5 dataset.
+- `field_names`: the list of all features
+- `trajectory_length`: the number of time steps per trajectory
+
+Examples can be found [here](https://github.com/DonsetPG/graph-physics/tree/main/dataset_config).
+
+# TODOs
 
 ## Colab Wise
 
@@ -36,19 +328,7 @@
 - [ ] One notebook for the 3D plate
 - [ ] One notebook for the coarse aneurysm
 
-## Educational wise
-
-- [ ] Write about how to define the .json and the 2 functions
-- [ ] Prepare readme
-- [ ] In the readme, say which features we implemented and from what paper
-- [ ] Write about DGL install, WandB install
-- [ ] Write about what's the usage of each parameters
-
 ## Dev wise
 
 - [ ] Make setup and requirements
 - [ ] Make CI/CD
-
-## Next steps
-
-- [ ] Make public the list of features we still have to implement (e.g. masking, multigrid)

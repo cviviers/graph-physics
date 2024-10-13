@@ -5,7 +5,7 @@ import lightning.pytorch as pl
 import pyvista as pv
 import torch
 import wandb
-from pytorch_lightning.callbacks import Callback
+from lightning.pytorch.callbacks import Callback
 from torch_geometric.data import Data, Dataset
 
 from graphphysics.utils.pyvista_mesh import convert_to_pyvista_mesh
