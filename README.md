@@ -40,7 +40,8 @@ We give access to all datasets (full trajectories) and the mesh used to compute 
 |------------------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------|
 | CylinderFlow | As .H5 and reduced from MeshGraphNet | [Train](https://storage.googleapis.com/large-physics-model/datasets/cylinder/train.h5) [Test](https://storage.googleapis.com/large-physics-model/datasets/cylinder/test.h5) [Validation](https://storage.googleapis.com/large-physics-model/datasets/cylinder/valid.h5) |
 | DeformingPlate | As .H5 and reduced from MeshGraphNet | [Train](https://storage.googleapis.com/large-physics-model/datasets/plate/train.h5) [Test](https://storage.googleapis.com/large-physics-model/datasets/plate/test.h5) [Validation](https://storage.googleapis.com/large-physics-model/datasets/plate/valid.h5) |
-| 2D-Aneurysm | As .XDMF and Slices from AnxPlore | [Dataset](https://storage.googleapis.com/large-physics-model/datasets/aneurysm/2D_dataset.zip) |
+| Bezier | As .xdmf | [Train](https://storage.googleapis.com/large-physics-model/datasets/bezier/train1.zip) [Test](https://storage.googleapis.com/large-physics-model/datasets/bezier/test.zip) |
+| 2D-Aneurysm | As .XDMF and Sliced from AnxPlore | [Dataset](https://storage.googleapis.com/large-physics-model/datasets/aneurysm/2D_dataset.zip) |
 | 3D-CoarseAneurysm | As .XDMF and Interpolated from AnxPlore | [Dataset](https://storage.googleapis.com/large-physics-model/datasets/aneurysm/coarse_03_dataset.zip) |
 
 ## Meshs
