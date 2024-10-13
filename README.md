@@ -28,6 +28,7 @@ At the moment, the repository supports the following:
   * [x] K-hop neighbours 
   * [ ] Nodes Masking
   * [ ] Augmented Adjacency Matrix
+  * [ ] Sub-meshs
 
 Feel free to open a PR if you want to implement a new feature, or an issue to request one.
 
@@ -37,10 +38,10 @@ We give access to all datasets (full trajectories) and the mesh used to compute 
 
 | Dataset                | Description                                                             | Link                                                                         |
 |------------------------|-------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| CylinderFlow | As .H5 and reduced from MeshGraphNet | : |
-| DeformingPlate | As .H5 and reduced from MeshGraphNet | : |
-| 2D-Aneurysm | As .XDMF and Slices from AnxPlore | : |
-| 3D-CoarseAneurysm | As .XDMF and Interpolated from AnxPlore | : |
+| CylinderFlow | As .H5 and reduced from MeshGraphNet | [Train](https://storage.googleapis.com/large-physics-model/datasets/cylinder/train.h5) [Test](https://storage.googleapis.com/large-physics-model/datasets/cylinder/test.h5) [Validation](https://storage.googleapis.com/large-physics-model/datasets/cylinder/valid.h5) |
+| DeformingPlate | As .H5 and reduced from MeshGraphNet | [Train](https://storage.googleapis.com/large-physics-model/datasets/plate/train.h5) [Test](https://storage.googleapis.com/large-physics-model/datasets/plate/test.h5) [Validation](https://storage.googleapis.com/large-physics-model/datasets/plate/valid.h5) |
+| 2D-Aneurysm | As .XDMF and Slices from AnxPlore | [Dataset](https://storage.googleapis.com/large-physics-model/datasets/aneurysm/2D_dataset.zip) |
+| 3D-CoarseAneurysm | As .XDMF and Interpolated from AnxPlore | [Dataset](https://storage.googleapis.com/large-physics-model/datasets/aneurysm/coarse_03_dataset.zip) |
 
 ## Meshs
 
@@ -101,9 +102,9 @@ pip install pyvista lightning wandb
 
 ### DGL
 
-You will need to install DGL. You can find information on how to set it up for your environement (here)[https://www.dgl.ai/pages/start.html].
+You will need to install DGL. You can find information on how to set it up for your environnement [here](https://www.dgl.ai/pages/start.html).
 
-In the case of a google colab, you canu se:
+In the case of a google colab, you can use:
 ```
 pip install  dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
 ```
@@ -296,6 +297,19 @@ def add_pos(graph: Data) -> Data:
     return graph
 ```
 
+<details>
+  <summary>In that case, the settings would need to be updated.</summary>
+  ```json
+  "index": {
+      "feature_index_start": 0,
+      "feature_index_end": 4,
+      "output_index_start": 2,
+      "output_index_end": 4,
+      "node_type_index": 4
+  }
+  ```
+</details>
+
 You can find more examples regarding adding features and building node type [here](https://github.com/DonsetPG/graph-physics/tree/main/graphphysics/external).
 
 
@@ -345,6 +359,7 @@ Examples can be found [here](https://github.com/DonsetPG/graph-physics/tree/main
 - [ ] One notebook for the cylinder
 - [ ] One notebook for the 3D plate
 - [ ] One notebook for the coarse aneurysm
+- [ ] Function to display a graph + add to doc
 
 ## Dev wise
 
