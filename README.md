@@ -347,7 +347,7 @@ You can find more examples regarding adding features and building node type [her
 }
 ```
 
-- `type`: Type of the model, either `transformer` or `mps` (message passing)
+- `type`: Type of the model, either `transformer` or `epd` (message passing)
 - `message_passing_num`: Number of Layers
 - `hidden_size`: Number of hidden neurons
 - `node_input_size`: Number of node features
