@@ -63,6 +63,44 @@ We offer 3 Google colab to showcase training on:
   - [Colab]()
   - dataset is from [AnXplore: a comprehensive fluid-structure interaction study of 101 intracranial aneurysms](https://www.frontiersin.org/journals/bioengineering-and-biotechnology/articles/10.3389/fbioe.2024.1433811/full?field&journalName=Frontiers_in_Bioengineering_and_Biotechnology&id=1433811)
 
+## Vizualisations 
+
+We use [Weights and Biases](https://wandb.ai/site) to log most information during training. This includes:
+- training and validation loss
+  - per step
+  - per epoch 
+- All Rollout RMSE on validation dataset
+
+We also save:
+- Images of ground truth and 1-step prediction for specific indices
+  - `LogPyVistaPredictionsCallback(dataset=val_dataset, indices=[1, 50, 100])` in [train.py](https://github.com/DonsetPG/graph-physics/blob/main/graphphysics/train.py)
+- Video of ground truth and auto regressive prediction between the first and the last index of the same `indices` list as above
+- Meshes of auto regressive prediction as `.vtk` file for the first trajectory of the validation dataset.
+
+> [!WARNING]  
+> If saving thoses meshes takes too much space, you can 1. monitor the disk usage using Weights and Biases, 2. Remove this functionnality in [lightning_module.py](https://github.com/DonsetPG/graph-physics/blob/0c9b6af20a25e7d08f2731efdfe4911f34fbc274/graphphysics/training/lightning_module.py#L154) (see the code below)
+
+<details>
+  <summary>[lightning_module.py](https://github.com/DonsetPG/graph-physics/blob/0c9b6af20a25e7d08f2731efdfe4911f34fbc274/graphphysics/training/lightning_module.py#L154)</summary>
+  ```python
+# Save trajectory graphs as .vtu files
+save_dir = os.path.join("meshes", f"epoch_{self.current_epoch}")
+os.makedirs(save_dir, exist_ok=True)
+for idx, graph in enumerate(self.trajectory_to_save):
+    try:
+        mesh = convert_to_pyvista_mesh(graph, add_all_data=True)
+        # Construct filename
+        filename = os.path.join(save_dir, f"graph_{idx}.vtk")
+        # Save the mesh
+        mesh.save(filename)
+    except Exception as e:
+        logger.error(
+            f"Error saving graph {idx} at epoch {self.current_epoch}: {e}"
+        )
+logger.info(f"Validation Trajectory saved at {save_dir}")
+```
+</details>
+
 ## Setup
 
 ### Default requirements
