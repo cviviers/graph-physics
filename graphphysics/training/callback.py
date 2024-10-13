@@ -9,6 +9,7 @@ import wandb
 from lightning.pytorch.callbacks import Callback
 from torch_geometric.data import Data, Dataset
 
+from graphphysics.training.lightning_module import build_mask
 from graphphysics.utils.pyvista_mesh import convert_to_pyvista_mesh
 
 
@@ -84,12 +85,25 @@ class LogPyVistaPredictionsCallback(Callback):
 
         frames_predictions = []
         frames_ground_truth = []
+        predicted_outputs = None
 
         if len(self.indices) > 1:
             with torch.no_grad():
                 for idx in range(self.indices[0], self.indices[-1]):
                     graph = self.dataset[idx].to(device)
+
+                    if predicted_outputs is not None:
+                        # Update the graph with the last prediction
+                        graph.x[
+                            :,
+                            model.model.output_index_start : model.model.output_index_end,
+                        ] = predicted_outputs.detach()
+
+                    mask = build_mask(model.param, graph)
+                    target = graph.y
+
                     _, _, predicted_outputs = model(graph)
+                    predicted_outputs[mask] = target[mask]
 
                     graph.x = predicted_outputs
 
