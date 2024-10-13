@@ -79,8 +79,8 @@ class LogPyVistaPredictionsCallback(Callback):
                 )
 
         wandb_logger = trainer.logger
-        wandb_logger.log({"pyvista_predictions": images})
-        wandb_logger.log({"pyvista_ground_truth": ground_truth})
+        wandb_logger.experiment.log({"pyvista_predictions": images})
+        wandb_logger.experiment.log({"pyvista_ground_truth": ground_truth})
 
         frames_predictions = []
         frames_ground_truth = []
@@ -127,8 +127,8 @@ class LogPyVistaPredictionsCallback(Callback):
 
         # Log videos to WandB
         wandb_logger = trainer.logger
-        wandb_logger.log({"pyvista_predictions_video": video_predictions})
-        wandb_logger.log({"pyvista_ground_truth_video": video_ground_truth})
+        wandb_logger.experiment.log({"pyvista_predictions_video": video_predictions})
+        wandb_logger.experiment.log({"pyvista_ground_truth_video": video_ground_truth})
 
     def _convert_to_pyvista_mesh(self, graph: Data) -> pv.PolyData:
         """

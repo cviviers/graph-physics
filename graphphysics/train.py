@@ -3,6 +3,7 @@ import os
 import warnings
 
 import torch
+import wandb
 from absl import app, flags
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
@@ -151,7 +152,8 @@ def main(argv):
         )
 
     # Initialize WandbLogger
-    wandb_logger = WandbLogger(project=wandb_project_name)
+    wandb_run = wandb.init(project=wandb_project_name)
+    wandb_logger = WandbLogger(experiment=wandb_run)
     checkpoint_callback = ModelCheckpoint(dirpath="checkpoints/")
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
