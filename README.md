@@ -80,26 +80,7 @@ We also save:
 > [!WARNING]  
 > If saving thoses meshes takes too much space, you can 1. monitor the disk usage using Weights and Biases, 2. Remove this functionnality in [lightning_module.py](https://github.com/DonsetPG/graph-physics/blob/0c9b6af20a25e7d08f2731efdfe4911f34fbc274/graphphysics/training/lightning_module.py#L154) (see the code below)
 
-<details>
-  <summary>[lightning_module.py](https://github.com/DonsetPG/graph-physics/blob/0c9b6af20a25e7d08f2731efdfe4911f34fbc274/graphphysics/training/lightning_module.py#L154)</summary>
-  ```python
-# Save trajectory graphs as .vtu files
-save_dir = os.path.join("meshes", f"epoch_{self.current_epoch}")
-os.makedirs(save_dir, exist_ok=True)
-for idx, graph in enumerate(self.trajectory_to_save):
-    try:
-        mesh = convert_to_pyvista_mesh(graph, add_all_data=True)
-        # Construct filename
-        filename = os.path.join(save_dir, f"graph_{idx}.vtk")
-        # Save the mesh
-        mesh.save(filename)
-    except Exception as e:
-        logger.error(
-            f"Error saving graph {idx} at epoch {self.current_epoch}: {e}"
-        )
-logger.info(f"Validation Trajectory saved at {save_dir}")
-```
-</details>
+https://github.com/DonsetPG/graph-physics/blob/6687b0bafabdd575d2ace6c0e7c39796e1f1624c/graphphysics/training/lightning_module.py#L151C1-L165C66
 
 ## Setup
 
