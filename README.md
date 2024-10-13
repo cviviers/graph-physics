@@ -80,7 +80,7 @@ We also save:
 > [!WARNING]  
 > If saving thoses meshes takes too much space, you can 1. monitor the disk usage using Weights and Biases, 2. Remove this functionnality in [lightning_module.py](https://github.com/DonsetPG/graph-physics/blob/0c9b6af20a25e7d08f2731efdfe4911f34fbc274/graphphysics/training/lightning_module.py#L154) (see the code below)
 
-https://github.com/DonsetPG/graph-physics/blob/6687b0bafabdd575d2ace6c0e7c39796e1f1624c/graphphysics/training/lightning_module.py#L151C1-L165C66
+https://github.com/DonsetPG/graph-physics/blob/6687b0bafabdd575d2ace6c0e7c39796e1f1624c/graphphysics/training/lightning_module.py#L151-L165
 
 ## Setup
 
