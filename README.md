@@ -54,13 +54,13 @@ We give access to all datasets (full trajectories) and the mesh used to compute 
 ### Tutorials
 
 We offer 3 Google colab to showcase training on:
-- a Flow past a Cylinder Dataset
+- a Flow past a Cylinder Dataset with message passing
   - [Colab]()
   - dataset is from [Learning Mesh-Based Simulation with Graph Networks](https://arxiv.org/abs/2010.03409)
-- a 3D Deforming plate
+- a Flow past a Cylinder Dataset with Transformers
   - [Colab]()
   - dataset is from [Learning Mesh-Based Simulation with Graph Networks](https://arxiv.org/abs/2010.03409)
-- a blood flow inside a 3D Aneurysm
+- a blood flow inside a 3D Aneurysm with Transformers
   - [Colab]()
   - dataset is from [AnXplore: a comprehensive fluid-structure interaction study of 101 intracranial aneurysms](https://www.frontiersin.org/journals/bioengineering-and-biotechnology/articles/10.3389/fbioe.2024.1433811/full?field&journalName=Frontiers_in_Bioengineering_and_Biotechnology&id=1433811)
 

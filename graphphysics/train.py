@@ -141,6 +141,7 @@ def main(argv):
             warmup=warmup,
             learning_rate=initial_lr,
             num_steps=num_steps,
+            trajectory_length=train_dataset.trajectory_length,
         )
     else:
         logger.info("Initializing new model")
@@ -149,6 +150,7 @@ def main(argv):
             learning_rate=initial_lr,
             num_steps=num_steps,
             warmup=warmup,
+            trajectory_length=train_dataset.trajectory_length,
         )
 
     # Initialize WandbLogger
