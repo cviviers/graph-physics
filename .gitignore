@@ -2,7 +2,6 @@ venv/*
 dgl/
 nohup.out
 .env
-*.vtu
 *.pth
 .pytest_cache/
 .benchmarks/
