@@ -21,7 +21,7 @@ def aneurysm_node_type(graph: Data) -> torch.Tensor:
     node_type[inflow_mask] = NodeType.INFLOW
     node_type[outflow_mask] = NodeType.OUTFLOW
 
-    return node_type
+    return node_type.to(device)
 
 
 def build_features(graph: Data) -> Data:

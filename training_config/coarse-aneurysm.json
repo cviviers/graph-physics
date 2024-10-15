@@ -7,8 +7,8 @@
     },
     "model": {
         "type": "transformer",
-        "message_passing_num": 5,
-        "hidden_size": 32,
+        "message_passing_num": 10,
+        "hidden_size": 64,
         "node_input_size": 14,
         "output_size": 3,
         "edge_input_size": 0,
@@ -23,9 +23,9 @@
     },
     "transformations": {
         "preprocessing": {
-            "noise": [10.0, 10.0, 1.0],
-            "noise_index_start": [0, 4],
-            "noise_index_end": [3, 7],
+            "noise": [10.0, 10.0, 1.0, 10.0, 10.0, 1.0],
+            "noise_index_start": [0, 1, 2, 4, 5, 6],
+            "noise_index_end": [1, 2, 3, 5, 6, 7],
             "masking": 0
         },
         "world_pos_parameters": {

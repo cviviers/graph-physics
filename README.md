@@ -53,15 +53,12 @@ We give access to all datasets (full trajectories) and the mesh used to compute 
 
 ### Tutorials
 
-We offer 3 Google colab to showcase training on:
+We offer 2 Google colab to showcase training on:
 - a Flow past a Cylinder Dataset with message passing
-  - [Colab]()
-  - dataset is from [Learning Mesh-Based Simulation with Graph Networks](https://arxiv.org/abs/2010.03409)
-- a Flow past a Cylinder Dataset with Transformers
-  - [Colab]()
+  - [Colab](https://colab.research.google.com/drive/1DVOLrfPPLsjrsC8oq1KaDTIMHxHl1rgH?usp=sharing)
   - dataset is from [Learning Mesh-Based Simulation with Graph Networks](https://arxiv.org/abs/2010.03409)
 - a blood flow inside a 3D Aneurysm with Transformers
-  - [Colab]()
+  - [Colab](https://colab.research.google.com/drive/1csjUx72GPcHzaaBC9z2b7wuxHVrAVsbO?usp=sharing)
   - dataset is from [AnXplore: a comprehensive fluid-structure interaction study of 101 intracranial aneurysms](https://www.frontiersin.org/journals/bioengineering-and-biotechnology/articles/10.3389/fbioe.2024.1433811/full?field&journalName=Frontiers_in_Bioengineering_and_Biotechnology&id=1433811)
 
 ## Vizualisations 
@@ -376,10 +373,9 @@ Examples can be found [here](https://github.com/DonsetPG/graph-physics/tree/main
 
 ## Colab Wise
 
-- [ ] One notebook for the cylinder
-- [ ] One notebook for the 3D plate
-- [ ] One notebook for the coarse aneurysm
-- [ ] Function to display a graph + add to doc
+- [X] One notebook for the cylinder
+- [X] One notebook for the coarse aneurysm
+- [ ] Add repo on papers with code
 
 ## Dev wise
 

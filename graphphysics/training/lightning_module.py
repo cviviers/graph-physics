@@ -93,7 +93,7 @@ class LightningModule(L.LightningModule):
 
     def validation_step(self, batch: Batch, batch_idx: int):
         # Determine if we need to reset the trajectory
-        if batch_idx // self.trajectory_length > self.current_val_trajectory:
+        if batch.traj_index > self.current_val_trajectory:
             self.current_val_trajectory += 1
             self.last_val_prediction = None
 

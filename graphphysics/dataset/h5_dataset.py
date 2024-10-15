@@ -93,6 +93,7 @@ class H5Dataset(BaseDataset):
         selected_indices = self._get_masked_indexes(graph)
 
         del graph.previous_data
+        graph.traj_index = traj_index
 
         if selected_indices is not None:
             return graph, selected_indices

@@ -33,6 +33,7 @@ with patch("graphphysics.training.parse_parameters.get_model") as mock_get_model
             edge_attr = torch.randn(20, 4)
             data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
             data.y = torch.randn(10, 3)
+            data.traj_index = 0
             return data
 
     class TestLitLightningModule(unittest.TestCase):
@@ -211,6 +212,7 @@ with patch("graphphysics.training.parse_parameters.get_model") as mock_get_model
             self.model.validation_step(batch, batch_idx=0)
             first_prediction = self.model.last_val_prediction.clone()
             assert self.model.current_val_trajectory == 0
+            batch.traj_index = 1
             self.model.validation_step(
                 batch, batch_idx=self.trajectory_length
             )  # Should reset trajectory

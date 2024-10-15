@@ -7,7 +7,6 @@ import torch
 from torch_geometric.data import Data
 
 from graphphysics.dataset.dataset import BaseDataset
-from graphphysics.dataset.preprocessing import _3d_face_to_edge
 from graphphysics.utils.torch_graph import meshdata_to_graph
 
 
@@ -86,7 +85,17 @@ class XDMFDataset(BaseDataset):
         if "triangle" in mesh.cells_dict:
             faces = mesh.cells_dict["triangle"]
         elif "tetra" in mesh.cells_dict:
-            faces = mesh.cells_dict["tetra"].T
+            face = torch.tensor(mesh.cells_dict["tetra"].T, dtype=torch.long)
+            faces = torch.cat(
+                [
+                    face[0:3],
+                    face[1:4],
+                    torch.stack([face[2], face[3], face[0]], dim=0),
+                    torch.stack([face[3], face[0], face[1]], dim=0),
+                ],
+                dim=1,
+            )
+            faces = faces.T.numpy()
         else:
             raise ValueError(
                 "Unsupported cell type. Only 'triangle' and 'tetra' cells are supported."
@@ -123,10 +132,6 @@ class XDMFDataset(BaseDataset):
             target=target_data,
         )
 
-        # Apply face to edge transformation for 3D meshes with tetrahedral cells
-        if "tetra" in mesh.cells_dict:
-            graph = _3d_face_to_edge(graph)
-
         if self.use_previous_data:
             _, previous_data, _ = reader.read_data(frame - 1)
             previous = {
@@ -146,6 +151,7 @@ class XDMFDataset(BaseDataset):
         selected_indices = self._get_masked_indexes(graph)
 
         del graph.previous_data
+        graph.traj_index = traj_index
 
         if selected_indices is not None:
             return graph, selected_indices
