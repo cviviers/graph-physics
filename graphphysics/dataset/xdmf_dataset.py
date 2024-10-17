@@ -42,7 +42,7 @@ class XDMFDataset(BaseDataset):
         self.file_paths: List[str] = [
             os.path.join(xdmf_folder, f)
             for f in os.listdir(xdmf_folder)
-            if os.path.isfile(os.path.join(xdmf_folder, f)) and f.endswith(".xdmf")
+            if os.path.isfile(os.path.join(xdmf_folder, f)) and (f.endswith(".xdmf") or f.endswith(".xmf"))
         ]
         self._size_dataset: int = len(self.file_paths)
 
