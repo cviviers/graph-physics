@@ -1,4 +1,4 @@
-![Lint and Tests](https://github.com/DonsetPG/graph-physics/workflows/pylint.yml/badge.svg?branch=main)
+![Lint and Tests](https://github.com/DonsetPG/graph-physics/workflows/gp/badge.svg?branch=main)
 
 # Training Graph Neural Networks for Mesh-based Physics Simulations
 
