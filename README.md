@@ -111,7 +111,6 @@ pip install loguru==0.7.2
 pip install autoflake==2.3.0
 pip install pytest==8.0.1
 pip install meshio==5.3.5
-pip install tensorflow
 pip install h5py==3.10.0
 
 pip install pyvista lightning wandb

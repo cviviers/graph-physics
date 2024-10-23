@@ -1,0 +1,68 @@
+{
+    "dt": 0.0,
+    "features": {
+      "Node Type": {
+        "type": "static",
+        "shape": [
+          149,
+          -1,
+          1
+        ],
+        "dtype": "int32"
+      },
+      "Distance": {
+        "type": "static",
+        "shape": [
+          149,
+          -1,
+          1
+        ],
+        "dtype": "float32"
+      },
+      "Mach": {
+        "type": "dynamic",
+        "shape": [
+          149,
+          -1,
+          1
+        ],
+        "dtype": "float32"
+      },
+      "Pressure": {
+        "type": "dynamic",
+        "shape": [
+          149,
+          -1,
+          1
+        ],
+        "dtype": "float32"
+      },
+      "Velocity_x": {
+        "type": "dynamic",
+        "shape": [
+          149,
+          -1,
+          1
+        ],
+        "dtype": "float32"
+      },
+      "Velocity_y": {
+        "type": "dynamic",
+        "shape": [
+          149,
+          -1,
+          1
+        ],
+        "dtype": "float32"
+      }
+    },
+    "field_names": [
+      "Node Type",
+      "Distance",
+      "Mach",
+      "Pressure",
+      "Velocity_x",
+      "Velocity_y"
+    ],
+    "trajectory_length": 149
+  }
