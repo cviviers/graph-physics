@@ -30,6 +30,8 @@ jobs:
         pip install pytest==8.0.1
         pip install meshio==5.3.5
         pip install h5py==3.10.0
+        pip install pyvista
+        pip install lightning
         pip install pylint
         pip install black
     - name: Linting code
