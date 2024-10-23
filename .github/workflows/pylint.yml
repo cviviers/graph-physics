@@ -24,7 +24,6 @@ jobs:
         pip install torch-cluster     -f https://pytorch-geometric.com/whl/torch-2.4.0+cpu.html
         pip install torch-spline-conv  -f https://pytorch-geometric.com/whl/torch-2.4.0+cpu.html
         pip install torch-geometric
-        pip install dgl -f https://data.dgl.ai/wheels/torch-2.4/repo.html
         pip install loguru==0.7.2
         pip install autoflake==2.3.0
         pip install pytest==8.0.1
@@ -32,6 +31,7 @@ jobs:
         pip install h5py==3.10.0
         pip install pyvista
         pip install lightning
+        pip install pytest-benchmark
         pip install pylint
         pip install black
     - name: Linting code
