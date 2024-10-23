@@ -30,6 +30,7 @@ jobs:
         pip install meshio==5.3.5
         pip install h5py==3.10.0
         pip install pylint
+        pip install black
     - name: Linting code
       run: |
         make lint
