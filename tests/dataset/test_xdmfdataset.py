@@ -58,7 +58,7 @@ class TestH5DatasetDistance(unittest.TestCase):
         )
 
         min_distance = compute_min_distance_to_type(
-            graph=graph, target_type=NodeType.INFLOW, node_type_index=-1
+            graph=graph, target_type=NodeType.INFLOW, node_types=node_type
         )
 
         graph.x = torch.cat(

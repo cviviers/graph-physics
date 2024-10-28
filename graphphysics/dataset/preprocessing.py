@@ -227,7 +227,7 @@ def add_noise(
 
 
 def compute_min_distance_to_type(
-    graph: Data, target_type: NodeType, node_type_index: int
+    graph: Data, target_type: NodeType, node_types: torch.Tensor
 ):
     """
     Computes the minimum distance from each node to any node of the specified type.
@@ -235,13 +235,12 @@ def compute_min_distance_to_type(
     Parameters:
         graph (Data): The graph to modify.
         target_type (NodeType): Nodes to compare to.
-        node_type_index (int): The index of the node type feature.
+        node_types (torch.Tensor): The node type features
 
     Returns:
         torch.Tensor: Tensor of shape [num_nodes] containing minimum distances
     """
     # Get masks for target type nodes
-    node_types = graph.x[:, node_type_index]
     type_a_mask = node_types == target_type
 
     # Get positions
