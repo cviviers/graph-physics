@@ -122,6 +122,10 @@ class LightningModule(L.LightningModule):
 
         self.last_val_prediction = predicted_outputs
 
+        errors = (predicted_outputs - target) ** 2
+        print("torch.mean(errors)")
+        print(torch.mean(errors))
+
         val_loss = self.loss(
             target,
             predicted_outputs,

@@ -1,10 +1,13 @@
+import math
+import random
 from functools import partial
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 import torch_geometric.transforms as T
 from scipy.spatial import cKDTree
-from torch_geometric.data import Data
+from torch_geometric.data import Batch, Data
+from torch_geometric.transforms import BaseTransform
 from torch_geometric.utils import to_undirected
 
 from graphphysics.utils.nodetype import NodeType
@@ -221,6 +224,135 @@ def add_noise(
         graph.x[:, start:end] = feature + noise
 
     return graph
+
+
+def compute_min_distance_to_type(
+    graph: Data, target_type: NodeType, node_type_index: int
+):
+    """
+    Computes the minimum distance from each node to any node of the specified type.
+
+    Parameters:
+        graph (Data): The graph to modify.
+        target_type (NodeType): Nodes to compare to.
+        node_type_index (int): The index of the node type feature.
+
+    Returns:
+        torch.Tensor: Tensor of shape [num_nodes] containing minimum distances
+    """
+    # Get masks for target type nodes
+    node_types = graph.x[:, node_type_index]
+    type_a_mask = node_types == target_type
+
+    # Get positions
+    pos = graph.pos  # [num_nodes, 3]
+
+    # Expand dimensions for broadcasting
+    # [num_nodes, 1, 3] and [1, num_type_a_nodes, 3]
+    pos_expanded = pos.unsqueeze(1)
+    pos_type_a = pos[type_a_mask].unsqueeze(0)
+
+    # Compute pairwise distances
+    # Using broadcasting to compute differences
+    # Result shape: [num_nodes, num_type_a_nodes]
+    distances = torch.sqrt(torch.sum((pos_expanded - pos_type_a) ** 2, dim=-1))
+
+    # Get minimum distance for each node
+    min_distances = torch.min(distances, dim=1)[0]
+
+    return min_distances
+
+
+class Random3DRotate(BaseTransform):
+    """
+    Applies random 3D rotation to node positions and specified feature sets.
+
+    Args:
+        feature_indices (List[Tuple[int, int]]): List of (start_idx, end_idx) tuples
+            indicating which features in graph.x should be rotated as 3D coordinates.
+            Each tuple specifies a range of 3 consecutive features representing x,y,z coordinates.
+    """
+
+    def __init__(self, feature_indices: List[Tuple[int, int]] = None) -> None:
+        self.feature_indices = feature_indices or []
+        # Validate that each range spans 3 features (x,y,z coordinates)
+        for start_idx, end_idx in self.feature_indices:
+            assert end_idx - start_idx == 3, (
+                f"Each feature range must span exactly 3 features for xyz coordinates. "
+                f"Got range {start_idx}-{end_idx}"
+            )
+
+    def _get_random_angles(self):
+        """Generate random rotation angles in degrees and convert to radians."""
+        angles = [random.uniform(-180, 180) for _ in range(3)]
+        return [math.radians(angle) for angle in angles]
+
+    def _build_rotation_matrix(self, alpha, beta, gamma):
+        """Build the complete 3D rotation matrix using the given angles.
+
+        Args:
+            alpha (float): Rotation angle around z-axis (yaw) in radians
+            beta (float): Rotation angle around y-axis (pitch) in radians
+            gamma (float): Rotation angle around x-axis (roll) in radians
+
+        Returns:
+            torch.Tensor: 3x3 rotation matrix
+        """
+        # Compute trigonometric functions for all angles
+        cos_a, sin_a = math.cos(alpha), math.sin(alpha)
+        cos_b, sin_b = math.cos(beta), math.sin(beta)
+        cos_g, sin_g = math.cos(gamma), math.sin(gamma)
+
+        # Build the complete rotation matrix according to the formula
+        matrix = [
+            [
+                cos_a * cos_b,
+                cos_a * sin_b * sin_g + sin_a * cos_g,
+                -cos_a * sin_b * cos_g + sin_a * sin_g,
+            ],
+            [
+                -sin_a * cos_b,
+                -sin_a * sin_b * sin_g + cos_a * cos_g,
+                sin_a * sin_b * cos_g + cos_a * sin_g,
+            ],
+            [sin_b, -cos_b * sin_g, cos_b * cos_g],
+        ]
+
+        return torch.tensor(matrix)
+
+    def _rotate_features(self, x: torch.Tensor, matrix: torch.Tensor) -> torch.Tensor:
+        """Rotate specified feature sets using the rotation matrix."""
+        for start_idx, end_idx in self.feature_indices:
+            feat = x[:, start_idx:end_idx]
+            # Apply rotation
+            rotated_feat = feat @ matrix.to(feat.device, feat.dtype)
+            # Update the features
+            x[:, start_idx:end_idx] = rotated_feat
+        return x
+
+    def forward(self, data: Union[Data, Batch]) -> Union[Data, Batch]:
+        # Generate random angles and build rotation matrix
+        alpha, beta, gamma = self._get_random_angles()
+        rotation_matrix = self._build_rotation_matrix(alpha, beta, gamma)
+
+        # First rotate the node positions if they exist
+        if hasattr(data, "pos") and data.pos is not None:
+            pos = data.pos.view(-1, 1) if data.pos.dim() == 1 else data.pos
+            assert pos.size(-1) == 3, "Node positions must be 3-dimensional"
+            data.pos = pos @ rotation_matrix.to(pos.device, pos.dtype)
+
+        # Then rotate the specified feature sets if they exist
+        if hasattr(data, "x") and data.x is not None and self.feature_indices:
+            data.x = self._rotate_features(data.x, rotation_matrix)
+
+        if hasattr(data, "y") and data.x is not None:
+            target = data.y[:, 0:3]
+            # Apply rotation
+            rotated_target = target @ rotation_matrix.to(target.device, target.dtype)
+            # Update the target
+            data.y = rotated_target
+
+        return data
 
 
 def build_preprocessing(

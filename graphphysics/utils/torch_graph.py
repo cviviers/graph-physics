@@ -9,6 +9,7 @@ from torch_geometric.data import Data
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+
 def compute_k_hop_edge_index(
     edge_index: torch.Tensor,
     num_hops: int,
@@ -76,7 +77,9 @@ def compute_k_hop_graph(
     num_nodes = graph.num_nodes
 
     khop_edge_index = compute_k_hop_edge_index(
-        edge_index=edge_index, num_hops=num_hops, num_nodes=num_nodes,
+        edge_index=edge_index,
+        num_hops=num_hops,
+        num_nodes=num_nodes,
     ).to(device)
 
     # Build k-hop graph
