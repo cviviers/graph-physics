@@ -11,6 +11,12 @@ setup-requirements:
 test: ## Run all tests
 	@python3 -m pytest tests/
 
+test-gp: ## Run all tests
+	@python3 -m pytest tests/graphphysics/
+
+test-jp: ## Run all tests
+	@python3 -m pytest tests/jraphphysics/
+
 remove-unused-imports: ## Remove unused imports
 	@autoflake --in-place --remove-all-unused-imports -r graphphysics/ --exclude venv,node_modules
 
