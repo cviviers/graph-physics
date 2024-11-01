@@ -2,7 +2,7 @@ import jax.numpy as jnp
 from flax import nnx
 from jax.experimental import sparse as jsparse
 import jraph
-
+import jax
 from jraphphysics.models.layers import FeedForward, Transformer
 
 

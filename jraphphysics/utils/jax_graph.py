@@ -206,7 +206,7 @@ def batched_meshdata_to_graph(
     time: Union[int, float, np.ndarray] = 1,
     target: Optional[Dict[str, np.ndarray]] = None,
     return_only_node_features: bool = False,
-) -> Union[jraph.GraphsTuple, jnp.ndarray]:
+) -> jraph.GraphsTuple:
     """
     Converts batched mesh data into a batched Jraph GraphsTuple object.
 
