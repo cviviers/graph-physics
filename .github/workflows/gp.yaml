@@ -39,4 +39,4 @@ jobs:
         make lint
     - name: Testing code
       run: |
-        make test
+        make test-gp
