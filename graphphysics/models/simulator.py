@@ -9,6 +9,55 @@ from torch_geometric.data import Data
 from graphphysics.models.layers import Normalizer
 from graphphysics.utils.nodetype import NodeType
 
+# simulator.py (diagonal GMM sampling snippet)
+
+
+def sample_gmm_diagonal(
+    network_output: torch.Tensor, d: int, K: int, temperature: float = 1.0
+) -> torch.Tensor:
+    """
+    For diagonal-cov GMM:
+      - means: d
+      - log_std: d
+      - mixture logit: 1
+    total = 2d + 1
+    network_output shape: [N, K*(2d + 1)]
+    Returns [N, d] velocity samples
+    """
+    device = network_output.device
+    N = network_output.shape[0]
+    per_comp = 2 * d + 1
+
+    # reshape => [N, K, 2d + 1]
+    net_3d = network_output.view(N, K, per_comp)
+
+    logit = net_3d[..., 0]  # [N,K]
+    alpha = torch.softmax(logit, dim=-1)  # [N,K]
+
+    means = net_3d[..., 1 : 1 + d]  # [N,K,d]
+    log_std = net_3d[..., 1 + d : 1 + 2 * d]  # [N,K,d]
+
+    # pick component for each node
+    comp_ids = torch.multinomial(alpha, 1).squeeze(-1)  # [N]
+    # gather means, log_std
+    chosen_means = torch.zeros(N, d, device=device)
+    chosen_log_std = torch.zeros(N, d, device=device)
+
+    for k_idx in range(K):
+        mask_k = comp_ids == k_idx
+        if mask_k.any():
+            chosen_means[mask_k] = means[mask_k, k_idx, :]
+            chosen_log_std[mask_k] = log_std[mask_k, k_idx, :]
+
+    # convert log_std => std => apply temperature
+    chosen_std = torch.exp(chosen_log_std) * temperature  # [N,d]
+
+    # sample from Normal(means, diag(std^2))
+    # => means + std * z
+    z = torch.randn(N, d, device=device)
+    velocities = chosen_means + chosen_std * z
+    return velocities
+
 
 def sample_gmm(
     network_output: torch.Tensor, d: int, K: int, temperature: float = 1.0

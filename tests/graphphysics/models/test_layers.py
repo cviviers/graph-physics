@@ -14,6 +14,7 @@ from graphphysics.models.layers import (
     Transformer,
     GraphNetBlock,
     GMMHead,
+    DiagonalGMMHead,
 )
 
 try:
@@ -42,6 +43,22 @@ class TestTransformerComponents(unittest.TestCase):
         x = torch.randn(3, in_size)
         output = mlp(x)
         self.assertEqual(output.shape, (3, out_size))
+
+    def test_gmm_head_diagonal(self):
+        d = 4
+        K = 3
+        hidden_size = 16
+        N = 5
+        per_comp = 2 * d + 1  # diagonal => means(d) + logstd(d) + logit(1)
+        expected_dim = K * per_comp
+
+        head = DiagonalGMMHead(
+            input_dim=hidden_size, d=d, num_components=K, temperature=1.0
+        )
+        x = torch.randn(N, hidden_size)
+        out = head(x)
+        self.assertEqual(out.shape, (N, expected_dim))
+        self.assertFalse(torch.isnan(out).any(), "GMMHead output has NaNs.")
 
     def test_gmm_head(self):
         """

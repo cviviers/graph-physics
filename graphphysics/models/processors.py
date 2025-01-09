@@ -2,7 +2,13 @@ import torch
 import torch.nn as nn
 from torch_geometric.data import Data
 
-from graphphysics.models.layers import GMMHead, GraphNetBlock, Transformer, build_mlp
+from graphphysics.models.layers import (
+    DiagonalGMMHead,
+    GMMHead,
+    GraphNetBlock,
+    Transformer,
+    build_mlp,
+)
 
 try:
     import dgl.sparse as dglsp
@@ -33,6 +39,7 @@ class EncodeProcessDecode(nn.Module):
         only_processor: bool = False,
         num_mixture_components: int = 0,  # e.g., K=3
         temperature: float = None,
+        use_diagonal: bool = True,
     ):
         """
         Initializes the EncodeProcessDecode model.
@@ -73,12 +80,20 @@ class EncodeProcessDecode(nn.Module):
                     layer_norm=False,
                 )
             else:
-                self.decode_module = GMMHead(
-                    input_dim=hidden_size,
-                    d=output_size,
-                    num_components=num_mixture_components,
-                    temperature=temperature,
-                )
+                if use_diagonal:
+                    self.decode_module = DiagonalGMMHead(
+                        input_dim=hidden_size,
+                        d=output_size,
+                        num_components=num_mixture_components,
+                        temperature=temperature,
+                    )
+                else:
+                    self.decode_module = GMMHead(
+                        input_dim=hidden_size,
+                        d=output_size,
+                        num_components=num_mixture_components,
+                        temperature=temperature,
+                    )
 
         self.processor_list = nn.ModuleList(
             [GraphNetBlock(hidden_size=hidden_size) for _ in range(message_passing_num)]

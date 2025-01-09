@@ -154,6 +154,47 @@ class GMMHead(nn.Module):
         return self.proj(self.pre_proj(x))
 
 
+class DiagonalGMMHead(nn.Module):
+    """
+    Outputs Gaussian Mixture Model parameters (diagonal covariance).
+    For each mixture component:
+      - means: d
+      - log-variance or log-std: d
+      - mixture weight logit: 1
+    total = 2d + 1 per component
+    """
+
+    def __init__(
+        self, input_dim: int, d: int, num_components: int, temperature: float = 1.0
+    ):
+        """
+        Args:
+            input_dim (int): The size of the latent embedding (hidden_size).
+            d (int): Dimension of velocity/output at each node.
+            num_components (int): Number of mixture components K.
+            temperature (float): Temperature factor for scaling std dev at sampling time.
+        """
+        super().__init__()
+        self.d = d
+        self.K = num_components
+        self.temperature = temperature
+
+        # per_component = 2*d + 1
+        self.per_component = 2 * d + 1
+        out_size = self.K * self.per_component
+
+        self.pre_proj = nn.Linear(input_dim, input_dim)  # optional
+        self.proj = nn.Linear(input_dim, out_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        x shape [num_nodes, hidden_size]
+        returns shape [num_nodes, K*(2*d + 1)]
+        """
+        h = self.pre_proj(x)
+        return self.proj(h)
+
+
 class GatedMLP(nn.Module):
     """
     A Gated Multilayer Perceptron.

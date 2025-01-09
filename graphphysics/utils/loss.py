@@ -53,6 +53,97 @@ class L2Loss(_Loss):
         return torch.mean(errors)
 
 
+class DiagonalGaussianMixtureNLLLoss(_Loss):
+    """
+    Negative log-likelihood loss for a GMM with diagonal covariances.
+    Each mixture component has:
+      - means: d
+      - log-std: d
+      - logit: 1
+    => total per_component = 2d + 1
+    """
+
+    def __init__(self, d: int, K: int, temperature: float = 1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.d = d
+        self.K = K
+        self.temperature = temperature
+
+        # (2d + 1)
+        self.per_comp = 2 * self.d + 1
+
+    @property
+    def __name__(self):
+        return "GaussianMixtureNLLLossDiag"
+
+    def forward(
+        self,
+        target: torch.Tensor,  # [N, d]
+        network_output: torch.Tensor,  # [N, K*(2d + 1)]
+        node_type: torch.Tensor,
+        masks: list,
+        selected_indexes: torch.Tensor = None,
+    ) -> torch.Tensor:
+        device = network_output.device
+
+        # 1) Mask out
+        mask = node_type == masks[0]
+        for i in range(1, len(masks)):
+            mask = torch.logical_or(mask, node_type == masks[i])
+        if selected_indexes is not None:
+            n = network_output.shape[0]
+            nodes_mask = ~torch.isin(torch.arange(n).to(device), selected_indexes)
+            mask = torch.logical_and(nodes_mask, mask)
+
+        target = target[mask]  # [M, d]
+        network_output = network_output[mask]  # [M, K*(2d+1)]
+        M = target.shape[0]
+        if M == 0:
+            return torch.tensor(0.0, device=device, requires_grad=True)
+
+        # 2) parse output => shape [M, K, 2d+1]
+        net_3d = network_output.view(M, self.K, self.per_comp)
+        # logit => [M, K]
+        logit = net_3d[..., 0]
+        alpha = F.softmax(logit, dim=-1)  # [M, K]
+
+        # means => [M, K, d]
+        means = net_3d[..., 1 : 1 + self.d]
+        # log_std => [M, K, d]
+        log_std = net_3d[..., 1 + self.d : 1 + 2 * self.d]
+
+        # 3) compute log pdf for each mixture
+        # x => [M,1,d], mu => [M,K,d]
+        x = target.unsqueeze(1)  # [M,1,d]
+        diff = x - means  # [M,K,d]
+
+        # scaled std = T * exp(log_std)
+        std = torch.exp(log_std) * self.temperature  # [M,K,d]
+
+        # compute log of diagonal Gaussian => sum over d
+        # log N(x|mu, diag(std^2)) = sum_j -0.5 * [ log(2 pi) + 2 log std_j + ((x_j - mu_j)/std_j)^2 ]
+        # We'll do it dimension by dimension, then sum
+        # shape [M,K,d]
+        var = std**2
+        log_component = -0.5 * (
+            2.0 * torch.log(std + 1e-12)
+            + ((diff**2) / (var + 1e-12))
+            + torch.log(torch.tensor(2.0 * 3.141592653589793, device=device))
+        )
+        # sum over d => shape [M,K]
+        log_component = torch.sum(log_component, dim=-1)
+
+        # 4) mix weighting => log_alpha + log_component
+        log_alpha = torch.log(alpha + 1e-12)  # [M,K]
+        log_mixture = log_alpha + log_component
+
+        # 5) log-sum-exp => [M]
+        log_prob_x = torch.logsumexp(log_mixture, dim=-1)
+        # negative mean
+        nll = -torch.mean(log_prob_x)
+        return nll
+
+
 class GaussianMixtureNLLLoss(_Loss):
     """
     Negative log-likelihood loss for a full-covariance GMM output:

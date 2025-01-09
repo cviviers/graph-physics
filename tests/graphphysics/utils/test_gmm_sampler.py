@@ -1,6 +1,70 @@
 import unittest
 import torch
-from graphphysics.models.simulator import sample_gmm
+from graphphysics.models.simulator import sample_gmm, sample_gmm_diagonal
+
+
+class TestGMMSamplerDiagonal(unittest.TestCase):
+    def test_sample_gmm_shapes(self):
+        """
+        Test that diagonal-based sampler returns correct shape and no NaNs.
+        """
+        N = 5  # number of nodes
+        d = 3  # velocity dimension
+        K = 2  # mixture components
+        temperature = 1.0
+
+        # per_component = 2*d + 1 => 2*3 + 1=7
+        per_comp = 2 * d + 1
+        out_dim = K * per_comp  # total GMM param dimension per node => 14
+
+        # create random GMM parameters
+        network_output = torch.randn(N, out_dim)
+
+        velocities = sample_gmm_diagonal(
+            network_output, d=d, K=K, temperature=temperature
+        )
+        # shape => [N, d]
+        self.assertEqual(velocities.shape, (N, d), "Sampler must output [N, d].")
+        self.assertFalse(torch.isnan(velocities).any(), "Sampler returned NaNs.")
+        self.assertFalse(torch.isinf(velocities).any(), "Sampler returned Inf.")
+
+    def test_sample_gmm_temperature(self):
+        """
+        Check that different temperatures produce different magnitude samples.
+        """
+        N = 4
+        d = 2
+        K = 2
+        per_comp = 2 * d + 1
+        out_dim = K * per_comp
+        network_output = torch.randn(N, out_dim)
+
+        # sample with T=0.1
+        velocities_lowT = sample_gmm_diagonal(network_output, d, K, temperature=0.1)
+        # sample with T=5.0
+        velocities_highT = sample_gmm_diagonal(network_output, d, K, temperature=5.0)
+
+        std_low = velocities_lowT.std().item()
+        std_high = velocities_highT.std().item()
+
+        # typically expect bigger spread at high temp
+        self.assertTrue(
+            std_high > std_low, "Temperature scaling didn't increase sample spread."
+        )
+
+    def test_sample_gmm_single_component(self):
+        """
+        Edge case: single mixture component => K=1 => no mixture picking needed.
+        """
+        N = 5
+        d = 3
+        K = 1
+        per_comp = 2 * d + 1  # => 2*3 + 1=7
+        out_dim = K * per_comp
+        network_output = torch.randn(N, out_dim)
+
+        velocities = sample_gmm_diagonal(network_output, d, K, temperature=1.0)
+        self.assertEqual(velocities.shape, (N, d), "Sampler must output [N, d].")
 
 
 class TestGMMSampler(unittest.TestCase):
