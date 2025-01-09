@@ -10,6 +10,74 @@ from graphphysics.models.layers import Normalizer
 from graphphysics.utils.nodetype import NodeType
 
 
+def sample_gmm(
+    network_output: torch.Tensor, d: int, K: int, temperature: float = 1.0
+) -> torch.Tensor:
+    """
+    Convert the per-node GMM parameters (with full covariance in L) to a velocity sample.
+
+    Args:
+        network_output (torch.Tensor): shape [N, K * per_component]
+          where per_component = 1 (logit) + d (mean) + d(d+1)/2 (lower-tri factors).
+        d (int): dimension of velocity.
+        K (int): number of mixture components.
+        temperature (float): scale factor for the covariance.
+
+    Returns:
+        velocities (torch.Tensor): shape [N, d], one random sample per node.
+    """
+    device = network_output.device
+    N = network_output.shape[0]
+
+    # Parse network_output
+    per_comp = d + (d * (d + 1)) // 2 + 1  # 1=logit, d=mean, d(d+1)/2=L
+    net_3d = network_output.view(N, K, per_comp)  # shape [N, K, per_comp]
+
+    logit = net_3d[..., 0]  # [N, K]
+    alpha = torch.softmax(logit, dim=-1)  # [N, K]
+
+    idx_start = 1
+    idx_end = 1 + d
+    means = net_3d[..., idx_start:idx_end]  # [N, K, d]
+
+    # L factors
+    L_len = (d * (d + 1)) // 2
+    idx2_start = idx_end
+    idx2_end = idx_end + L_len
+    L_flat = net_3d[..., idx2_start:idx2_end]  # [N, K, L_len]
+
+    # create lower-tri matrix
+    L_mat = torch.zeros(N, K, d, d, device=device)
+    tril_indices = torch.tril_indices(row=d, col=d, offset=0)
+    L_mat[..., tril_indices[0], tril_indices[1]] = L_flat
+    # apply temperature scaling
+    L_mat = L_mat * temperature
+
+    # sample mixture component k for each node
+    # alpha[i] is the distribution over K components for node i
+    # => we do a random draw from that cat distribution
+    comp_ids = torch.multinomial(alpha, num_samples=1).squeeze(-1)  # [N]
+
+    # gather the chosen means, L, for each node
+    # shape [N, d] and [N, d, d]
+    chosen_means = torch.zeros(N, d, device=device)
+    chosen_L = torch.zeros(N, d, d, device=device)
+    for k_idx in range(K):
+        mask_k = comp_ids == k_idx
+        if mask_k.any():
+            chosen_means[mask_k] = means[mask_k, k_idx, :]
+            chosen_L[mask_k] = L_mat[mask_k, k_idx, :, :]
+
+    # sample from N(mu, Sigma = L L^T)
+    # for each node, we draw a standard normal z => shape [N, d]
+    z = torch.randn(N, d, device=device)
+    # L * z => shape [N, d]
+    # we can do a batched matmul
+    Lz = torch.einsum("nij,nj->ni", chosen_L, z)
+    velocities = chosen_means + Lz
+    return velocities
+
+
 class Simulator(nn.Module):
     """
     A simulator module that wraps a neural network model for graph data,

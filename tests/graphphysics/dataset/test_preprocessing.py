@@ -118,7 +118,9 @@ class TestGraphPreprocessing(unittest.TestCase):
         # At t=0 => scale_ = 10 * scale * (1 + cos(0)) = 20 * scale
         # At t=1 => scale_ = 10 * scale * (1 + cos(pi)) = 0
         graph_base = self.graph.clone()
-        normal_indices = (graph_base.x[:, 3] == NodeType.NORMAL).nonzero(as_tuple=True)[0]
+        normal_indices = (graph_base.x[:, 3] == NodeType.NORMAL).nonzero(as_tuple=True)[
+            0
+        ]
 
         # 1) t=0 -> Expect significant noise for NORMAL nodes
         graph_t0 = add_noise(
