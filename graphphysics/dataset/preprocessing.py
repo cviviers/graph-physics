@@ -173,6 +173,7 @@ def add_noise(
     noise_index_end: Union[int, List[int]],
     noise_scale: Union[float, List[float]],
     node_type_index: int,
+    t: Optional[float] = None
 ) -> Data:
     """
     Adds Gaussian noise to the specified features of the graph's nodes.
@@ -183,6 +184,8 @@ def add_noise(
         noise_index_end (Union[int, List[int]]): The ending index or indices for noise addition.
         noise_scale (Union[float, List[float]]): The standard deviation(s) of the Gaussian noise.
         node_type_index (int): The index of the node type feature.
+        t (float): If defined, we add a curicullum of noise instead of a fixed one. We follow the fol-
+            lowing formula: noise(t) = 10*std*(1+cos(t*pi))
 
     Returns:
         Data: The modified graph with noise added to node features.
@@ -214,8 +217,10 @@ def add_noise(
     for start, end, scale in zip(noise_index_start, noise_index_end, noise_scale):
         feature = graph.x[:, start:end]
 
+        scale_ = 10*scale*(1+math.cos(t*math.pi)) if t is not None else scale
+
         # Generate noise
-        noise = torch.randn_like(feature) * scale
+        noise = torch.randn_like(feature) * scale_
 
         # Zero out noise for nodes not of type NORMAL
         noise[mask] = 0

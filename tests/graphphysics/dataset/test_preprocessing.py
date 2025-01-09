@@ -113,6 +113,45 @@ class TestGraphPreprocessing(unittest.TestCase):
             )
         )
 
+    def test_add_noise_with_t(self):
+        """Test noise addition with curriculum parameter t."""
+        # At t=0 => scale_ = 10 * scale * (1 + cos(0)) = 20 * scale
+        # At t=1 => scale_ = 10 * scale * (1 + cos(pi)) = 0
+        graph_base = self.graph.clone()
+        normal_indices = (graph_base.x[:, 3] == NodeType.NORMAL).nonzero(as_tuple=True)[0]
+
+        # 1) t=0 -> Expect significant noise for NORMAL nodes
+        graph_t0 = add_noise(
+            graph_base.clone(),
+            noise_index_start=0,
+            noise_index_end=3,
+            noise_scale=0.1,
+            node_type_index=3,
+            t=0,
+        )
+        # NORMAL nodes should change
+        self.assertFalse(
+            torch.allclose(
+                graph_t0.x[normal_indices, 0:3], graph_base.x[normal_indices, 0:3]
+            )
+        )
+
+        # 2) t=1 -> Expect NO noise for NORMAL nodes (scale_=0)
+        graph_t1 = add_noise(
+            graph_base.clone(),
+            noise_index_start=0,
+            noise_index_end=3,
+            noise_scale=0.1,
+            node_type_index=3,
+            t=1,
+        )
+        # NORMAL nodes should remain the same
+        self.assertTrue(
+            torch.allclose(
+                graph_t1.x[normal_indices, 0:3], graph_base.x[normal_indices, 0:3]
+            )
+        )
+
     def test_build_preprocessing(self):
         noise_params = {
             "noise_index_start": 0,
