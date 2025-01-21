@@ -58,14 +58,15 @@ class LightningModule(L.LightningModule):
         print(processor)
 
         self.model = get_simulator(param=parameters, model=processor, device=device)
+        self.K = processor.K
 
-        if self.processor.K == 0:
+        if self.K == 0:
             self.loss = L2Loss()
         else:
             self.loss = DiagonalGaussianMixtureNLLLoss(
-                d=self.processor.d,
-                K=self.processor.K,
-                temperature=self.processor.temperature,
+                d=processor.d,
+                K=self.K,
+                temperature=processor.temperature,
             )
         self.loss_masks = masks
 
@@ -129,14 +130,14 @@ class LightningModule(L.LightningModule):
 
         self.last_val_prediction = predicted_outputs
 
-        val_loss = self.loss(
-            target,
-            predicted_outputs,
-            node_type,
-            masks=self.loss_masks,
-        )
-
-        self.log("val_loss", val_loss, on_step=True, on_epoch=True, prog_bar=True)
+        if self.K > 0:
+            val_loss = self.loss(
+                target,
+                predicted_outputs,
+                node_type,
+                masks=self.loss_masks,
+            )
+            self.log("val_loss", val_loss, on_step=True, on_epoch=True, prog_bar=True)
 
     def on_validation_epoch_end(self):
         # Concatenate outputs and targets
