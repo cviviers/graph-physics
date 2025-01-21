@@ -6,7 +6,7 @@ from loguru import logger
 from torch_geometric.data import Batch
 
 from graphphysics.training.parse_parameters import get_model, get_simulator
-from graphphysics.utils.loss import L2Loss
+from graphphysics.utils.loss import DiagonalGaussianMixtureNLLLoss, L2Loss
 from graphphysics.utils.nodetype import NodeType
 from graphphysics.utils.pyvista_mesh import convert_to_pyvista_mesh
 from graphphysics.utils.scheduler import CosineWarmupScheduler
@@ -59,7 +59,14 @@ class LightningModule(L.LightningModule):
 
         self.model = get_simulator(param=parameters, model=processor, device=device)
 
-        self.loss = L2Loss()
+        if self.processor.K == 0:
+            self.loss = L2Loss()
+        else:
+            self.loss = DiagonalGaussianMixtureNLLLoss(
+                d=self.processor.d,
+                K=self.processor.K,
+                temperature=self.processor.temperature,
+            )
         self.loss_masks = masks
 
         self.learning_rate = learning_rate

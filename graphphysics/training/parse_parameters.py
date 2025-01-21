@@ -82,6 +82,10 @@ def get_model(param: Dict[str, Any], only_processor: bool = False):
     """
     model_type = param.get("model", {}).get("type", "")
     node_input_size = param["model"]["node_input_size"] + NodeType.SIZE
+
+    num_mixture_components = param["model"].get("num_mixture_components", 0)
+    temperature = param["model"].get("temperature")
+
     if model_type == "epd":
         return EncodeProcessDecode(
             message_passing_num=param["model"]["message_passing_num"],
@@ -90,6 +94,8 @@ def get_model(param: Dict[str, Any], only_processor: bool = False):
             output_size=param["model"]["output_size"],
             hidden_size=param["model"]["hidden_size"],
             only_processor=only_processor,
+            num_mixture_components=num_mixture_components,
+            temperature=temperature,
         )
     elif model_type == "transformer":
         return EncodeTransformDecode(
@@ -99,6 +105,8 @@ def get_model(param: Dict[str, Any], only_processor: bool = False):
             hidden_size=param["model"]["hidden_size"],
             num_heads=param["model"]["num_heads"],
             only_processor=only_processor,
+            num_mixture_components=num_mixture_components,
+            temperature=temperature,
         )
     else:
         raise ValueError(f"Model type '{model_type}' not supported.")

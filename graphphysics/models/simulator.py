@@ -9,8 +9,6 @@ from torch_geometric.data import Data
 from graphphysics.models.layers import Normalizer
 from graphphysics.utils.nodetype import NodeType
 
-# simulator.py (diagonal GMM sampling snippet)
-
 
 def sample_gmm_diagonal(
     network_output: torch.Tensor, d: int, K: int, temperature: float = 1.0
@@ -331,8 +329,22 @@ class Simulator(nn.Module):
         if self.training:
             return network_output, target_delta_normalized, None
         else:
-            outputs = self._build_outputs(inputs=inputs, network_output=network_output)
-            return network_output, target_delta_normalized, outputs
+            if self.model.K == 0:
+                outputs = self._build_outputs(
+                    inputs=inputs, network_output=network_output
+                )
+                return network_output, target_delta_normalized, outputs
+            else:
+                network_output = sample_gmm_diagonal(
+                    network_output,
+                    d=self.model.d,
+                    K=self.model.K,
+                    temperature=self.model.temperature,
+                )
+                outputs = self._build_outputs(
+                    inputs=inputs, network_output=network_output
+                )
+                return network_output, target_delta_normalized, outputs
 
     def freeze_all(self) -> None:
         """

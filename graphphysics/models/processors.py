@@ -58,6 +58,10 @@ class EncodeProcessDecode(nn.Module):
         super().__init__()
         self.only_processor = only_processor
         self.hidden_size = hidden_size
+        self.use_diagonal = use_diagonal
+        self.d = output_size
+        self.K = num_mixture_components
+        self.temperature = temperature
 
         if not self.only_processor:
             self.nodes_encoder = build_mlp(
@@ -150,6 +154,7 @@ class EncodeTransformDecode(nn.Module):
         use_separate_proj_weight: bool = True,
         num_mixture_components: int = 0,  # e.g., K=3
         temperature: float = None,
+        use_diagonal: bool = True,
     ):
         """
         Initializes the EncodeTransformDecode model.
@@ -172,6 +177,10 @@ class EncodeTransformDecode(nn.Module):
         super(EncodeTransformDecode, self).__init__()
         self.hidden_size = hidden_size
         self.only_processor = only_processor
+        self.use_diagonal = use_diagonal
+        self.d = output_size
+        self.K = num_mixture_components
+        self.temperature = temperature
 
         if not self.only_processor:
             self.nodes_encoder = build_mlp(
@@ -188,12 +197,20 @@ class EncodeTransformDecode(nn.Module):
                     layer_norm=False,
                 )
             else:
-                self.decode_module = GMMHead(
-                    input_dim=hidden_size,
-                    d=output_size,
-                    num_components=num_mixture_components,
-                    temperature=temperature,
-                )
+                if use_diagonal:
+                    self.decode_module = DiagonalGMMHead(
+                        input_dim=hidden_size,
+                        d=output_size,
+                        num_components=num_mixture_components,
+                        temperature=temperature,
+                    )
+                else:
+                    self.decode_module = GMMHead(
+                        input_dim=hidden_size,
+                        d=output_size,
+                        num_components=num_mixture_components,
+                        temperature=temperature,
+                    )
 
         self.processor_list = nn.ModuleList(
             [
