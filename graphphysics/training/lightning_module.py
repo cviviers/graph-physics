@@ -130,7 +130,7 @@ class LightningModule(L.LightningModule):
 
         self.last_val_prediction = predicted_outputs
 
-        if self.K > 0:
+        if self.K == 0:
             val_loss = self.loss(
                 target,
                 predicted_outputs,
