@@ -33,6 +33,9 @@ class LightningModule(L.LightningModule):
         trajectory_length: int = 599,
         only_processor: bool = False,
         masks: list[NodeType] = [NodeType.NORMAL, NodeType.OUTFLOW],
+        use_previous_data: bool = False,
+        previous_data_start: int = None,
+        previous_data_end: int = None,
     ):
         """
         Initializes the LightningModule.
@@ -45,6 +48,8 @@ class LightningModule(L.LightningModule):
             only_processor (bool, optional): Whether to use only the processor part of the model.
                 Defaults to False.
             masks (list[NodeType]): List of NodeTypes to include in the loss calculation.
+            use_previous_data (bool): If set to true, we also update autoregressively the
+              features at previous_data_start : previous_data_end
         """
         super().__init__()
         self.save_hyperparameters()
@@ -79,6 +84,11 @@ class LightningModule(L.LightningModule):
         self.trajectory_length = trajectory_length
         self.current_val_trajectory = 0
         self.last_val_prediction = None
+        self.last_previous_data_prediction = None
+
+        self.use_previous_data = use_previous_data
+        self.previous_data_start = previous_data_start
+        self.previous_data_end = previous_data_end
 
         # For one trajectory vizualization
         self.trajectory_to_save: list[Batch] = []
@@ -104,6 +114,7 @@ class LightningModule(L.LightningModule):
         if batch.traj_index > self.current_val_trajectory:
             self.current_val_trajectory += 1
             self.last_val_prediction = None
+            self.last_previous_data_prediction = None
 
         # Prepare the batch for the current step
         batch = batch.clone()
@@ -112,6 +123,10 @@ class LightningModule(L.LightningModule):
             batch.x[:, self.model.output_index_start : self.model.output_index_end] = (
                 self.last_val_prediction.detach()
             )
+            if self.use_previous_data:
+                batch.x[:, self.previous_data_start : self.previous_data_end] = (
+                    self.last_previous_data_prediction.detach()
+                )
 
         if self.current_val_trajectory == 0:
             self.trajectory_to_save.append(batch)
@@ -119,6 +134,10 @@ class LightningModule(L.LightningModule):
         mask = build_mask(self.param, batch)
         node_type = batch.x[:, self.model.node_type_index]
         target = batch.y
+
+        current_output = batch.x[
+            :, self.model.output_index_start : self.model.output_index_end
+        ]
 
         with torch.no_grad():
             _, _, predicted_outputs = self.model(batch)
@@ -129,6 +148,9 @@ class LightningModule(L.LightningModule):
         self.val_step_targets.append(target.cpu())
 
         self.last_val_prediction = predicted_outputs
+
+        if self.use_previous_data:
+            self.last_previous_data_prediction = predicted_outputs - current_output
 
         if self.K == 0:
             val_loss = self.loss(
@@ -177,6 +199,7 @@ class LightningModule(L.LightningModule):
         self.val_step_targets.clear()
         self.current_val_trajectory = 0
         self.last_val_prediction = None
+        self.last_previous_data_prediction = None
         self.trajectory_to_save.clear()
 
     def configure_optimizers(self):

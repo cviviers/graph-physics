@@ -35,6 +35,13 @@ flags.DEFINE_integer("warmup", 1000, "Learning rate warmup steps")
 flags.DEFINE_integer("num_workers", 2, "Number of DataLoader workers")
 flags.DEFINE_integer("prefetch_factor", 2, "Number of batches to prefetch")
 flags.DEFINE_string("model_save_path", None, "Path to the checkpoint (.ckpt) file")
+flags.DEFINE_bool("use_previous_data", False, "Whether to use previous data or not")
+flags.DEFINE_integer(
+    "previous_data_start", 4, "Index of the start of the previous data in the features"
+)
+flags.DEFINE_integer(
+    "previous_data_end", 7, "Index of the end of the previous data in the features"
+)
 flags.DEFINE_bool("no_edge_feature", False, "Whether to use edge features")
 flags.DEFINE_string(
     "training_parameters_path", None, "Path to the training parameters JSON file"
@@ -70,6 +77,9 @@ def main(argv):
     prefetch_factor = FLAGS.prefetch_factor
     model_save_path = FLAGS.model_save_path
     use_edge_feature = not FLAGS.no_edge_feature
+    use_previous_data = FLAGS.use_previous_data
+    previous_data_start = FLAGS.previous_data_start
+    previous_data_end = FLAGS.previous_data_end
 
     # Build preprocessing function
     preprocessing = get_preprocessing(
@@ -84,14 +94,14 @@ def main(argv):
         param=parameters,
         preprocessing=preprocessing,
         use_edge_feature=use_edge_feature,
-        use_previous_data=False,
+        use_previous_data=use_previous_data,
     )
 
     val_dataset = get_dataset(
         param=parameters,
         preprocessing=preprocessing,
         use_edge_feature=use_edge_feature,
-        use_previous_data=False,
+        use_previous_data=use_previous_data,
         switch_to_val=True,
     )
 
@@ -133,6 +143,14 @@ def main(argv):
     # Define or resume model
     num_steps = num_epochs * len(train_dataloader)
 
+    prev_data_kwargs = {}
+    if use_previous_data is True:
+        prev_data_kwargs = {
+            "use_previous_data": True,
+            "previous_data_start": previous_data_start,
+            "previous_data_end": previous_data_end,
+        }
+
     if model_save_path and os.path.isfile(model_save_path):
         logger.info(f"Loading model from checkpoint: {model_save_path}")
         lightning_module = LightningModule.load_from_checkpoint(
@@ -142,6 +160,7 @@ def main(argv):
             learning_rate=initial_lr,
             num_steps=num_steps,
             trajectory_length=train_dataset.trajectory_length,
+            **prev_data_kwargs,
         )
     else:
         logger.info("Initializing new model")
@@ -151,6 +170,7 @@ def main(argv):
             num_steps=num_steps,
             warmup=warmup,
             trajectory_length=train_dataset.trajectory_length,
+            **prev_data_kwargs,
         )
 
     # Initialize WandbLogger

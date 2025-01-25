@@ -134,6 +134,8 @@ with patch("graphphysics.training.parse_parameters.get_model") as mock_get_model
             self.dataloader = DataLoader(self.dataset, batch_size=1)
             batch = next(iter(self.dataloader))
 
+            self.assertEqual(self.model.use_previous_data, False)
+
             # Run validation step
             self.model.eval()
             self.model.validation_step(batch.to(device), batch_idx=0)
@@ -147,6 +149,41 @@ with patch("graphphysics.training.parse_parameters.get_model") as mock_get_model
             # Check that last_val_prediction is set
             self.assertIsNotNone(self.model.last_val_prediction)
             self.assertEqual(self.model.last_val_prediction.shape, (10, 3))
+
+            # Check that last_val_prediction is not set
+            self.assertIsNone(self.model.last_previous_data_prediction)
+
+        def test_validation_step_w_previous_data(self):
+            self.dataloader = DataLoader(self.dataset, batch_size=1)
+            batch = next(iter(self.dataloader))
+
+            self.model.use_previous_data = True
+            self.model.previous_data_start = 3
+            self.model.previous_data_end = 6
+
+            self.assertEqual(self.model.use_previous_data, True)
+
+            # Run validation step
+            self.model.eval()
+            self.model.validation_step(batch.to(device), batch_idx=0)
+
+            # Check that val_step_outputs and val_step_targets have been updated
+            self.assertEqual(len(self.model.val_step_outputs), 1)
+            self.assertEqual(len(self.model.val_step_targets), 1)
+            self.assertEqual(self.model.val_step_outputs[0].shape, (10, 3))
+            self.assertEqual(self.model.val_step_targets[0].shape, (10, 3))
+
+            # Check that last_val_prediction is set
+            self.assertIsNotNone(self.model.last_val_prediction)
+            self.assertEqual(self.model.last_val_prediction.shape, (10, 3))
+
+            # Check that last_val_prediction is set
+            self.assertIsNotNone(self.model.last_previous_data_prediction)
+            self.assertEqual(self.model.last_previous_data_prediction.shape, (10, 3))
+
+            self.model.use_previous_data = False
+            self.model.previous_data_start = None
+            self.model.previous_data_end = None
 
         def test_on_validation_epoch_end(self):
             # Simulate multiple validation steps
