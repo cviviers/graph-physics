@@ -19,6 +19,8 @@ from graphphysics.training.parse_parameters import (
     get_preprocessing,
 )
 from graphphysics.utils.progressbar import ColabProgressBar
+from graphphysics.external.aneurysm import build_features
+
 
 warnings.filterwarnings(
     "ignore", ".*Trying to infer the `batch_size` from an ambiguous collection.*"
@@ -35,7 +37,7 @@ flags.DEFINE_integer("warmup", 1000, "Learning rate warmup steps")
 flags.DEFINE_integer("num_workers", 2, "Number of DataLoader workers")
 flags.DEFINE_integer("prefetch_factor", 2, "Number of batches to prefetch")
 flags.DEFINE_string("model_save_path", None, "Path to the checkpoint (.ckpt) file")
-flags.DEFINE_bool("use_previous_data", False, "Whether to use previous data or not")
+flags.DEFINE_bool("use_previous_data", True, "Whether to use previous data or not")
 flags.DEFINE_integer(
     "previous_data_start", 4, "Index of the start of the previous data in the features"
 )
@@ -86,7 +88,7 @@ def main(argv):
         param=parameters,
         device=device,
         use_edge_feature=use_edge_feature,
-        extra_node_features=None,
+        extra_node_features=build_features,
     )
 
     # Get training and validation datasets
@@ -199,10 +201,10 @@ def main(argv):
         callbacks=[
             ColabProgressBar(),
             checkpoint_callback,
-            LogPyVistaPredictionsCallback(dataset=val_dataset, indices=[1, 50, 100]),
+            LogPyVistaPredictionsCallback(dataset=val_dataset, indices=[1, 10, 20]),
             lr_monitor,
         ],
-        log_every_n_steps=100,
+        log_every_n_steps=79,
     )
 
     # Start training

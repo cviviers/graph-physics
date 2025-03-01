@@ -2,7 +2,7 @@
     "dataset": {
         "extension": "xdmf",
         "xdmf_folder": "dataset/train",
-        "meta_path": "dataset/meta.json",
+        "meta_path": "dataset_config/aneurysm_meta.json",
         "khop": 1
     },
     "model": {
@@ -12,7 +12,7 @@
         "node_input_size": 14,
         "output_size": 3,
         "edge_input_size": 0,
-        "num_heads": 4
+        "num_heads": 2
     },
     "index": {
         "feature_index_start": 0,
