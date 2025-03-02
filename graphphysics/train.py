@@ -11,6 +11,7 @@ from lightning.pytorch.loggers import WandbLogger
 from loguru import logger
 from torch_geometric.loader import DataLoader
 
+from graphphysics.external.aneurysm import build_features
 from graphphysics.training.callback import LogPyVistaPredictionsCallback
 from graphphysics.training.lightning_module import LightningModule
 from graphphysics.training.parse_parameters import (
@@ -19,8 +20,6 @@ from graphphysics.training.parse_parameters import (
     get_preprocessing,
 )
 from graphphysics.utils.progressbar import ColabProgressBar
-from graphphysics.external.aneurysm import build_features
-
 
 warnings.filterwarnings(
     "ignore", ".*Trying to infer the `batch_size` from an ambiguous collection.*"

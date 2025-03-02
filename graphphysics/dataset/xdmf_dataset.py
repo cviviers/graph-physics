@@ -4,9 +4,12 @@ from typing import Callable, List, Optional, Tuple, Union
 import meshio
 import numpy as np
 import torch
+from torch_cluster import knn
 from torch_geometric.data import Data
 
 from graphphysics.dataset.dataset import BaseDataset
+from graphphysics.dataset.icp import iterative_closest_point
+from graphphysics.utils.nodetype import NodeType
 from graphphysics.utils.torch_graph import meshdata_to_graph
 
 
@@ -21,6 +24,7 @@ class XDMFDataset(BaseDataset):
         add_edge_features: bool = True,
         use_previous_data: bool = False,
         switch_to_val: bool = False,
+        node_type_index: int = 0,
     ):
         super().__init__(
             meta_path=meta_path,
@@ -34,6 +38,7 @@ class XDMFDataset(BaseDataset):
             xdmf_folder = xdmf_folder.replace("train", "test")
         self.xdmf_folder = xdmf_folder
         self.meta_path = meta_path
+        self.node_type_index = node_type_index
 
         # Get list of XDMF files in the folder
         self.file_paths: List[str] = [
@@ -43,10 +48,92 @@ class XDMFDataset(BaseDataset):
         ]
         self._size_dataset: int = len(self.file_paths)
 
+        self.npzfile_paths: List[str] = [
+            os.path.join(xdmf_folder, f)
+            for f in os.listdir(xdmf_folder)
+            if os.path.isfile(os.path.join(xdmf_folder, f)) and f.endswith(".npz")
+        ]
+
     @property
     def size_dataset(self) -> int:
         """Returns the number of trajectories in the dataset."""
         return self._size_dataset
+
+    def get_endcoding(self, index: int):
+        file_path = self.npzfile_paths[index]
+
+        data_npz = np.load(file_path)
+        feats = data_npz["feats"]
+        coords = data_npz["coords"]
+
+        return feats, coords
+
+    def scale_pos(self, graph: Data, coords: np.ndarray):
+        pos_graph = graph.pos
+
+        g_min, g_max = pos_graph.min(dim=0)[0], pos_graph.max(dim=0)[0]
+        pc_min, pc_max = coords.min(dim=0)[0], coords.max(dim=0)[0]
+
+        scale = (g_max - g_min) / (pc_max - pc_min)
+        shift = g_min - pc_min * scale
+        coords_scaled = coords * scale + shift
+
+        return coords_scaled
+
+    def apply_icp(
+        self, graph: Data, coords: np.ndarray, max_iterations=20, tolerance=0.001
+    ):
+        wall_mask = graph.x[:, self.node_type_index] == NodeType.WALL_BOUNDARY
+        wall_indices = wall_mask.nonzero(as_tuple=True)[0]
+        pos_graph = graph.pos[wall_indices]
+
+        coords_scaled = self.scale_pos(graph, coords)
+
+        aligned_coords, _, _ = iterative_closest_point(
+            coords_scaled, pos_graph, max_iterations=max_iterations, tolerance=tolerance
+        )
+
+        return aligned_coords
+
+    def add_encoding(
+        self, graph: Data, feats: np.ndarray, coords: np.ndarray, K: int = 6
+    ):
+        wall_mask = graph.x[:, self.node_type_index] == NodeType.WALL_BOUNDARY
+        wall_indices = wall_mask.nonzero(as_tuple=True)[0]
+        wall_pos = graph.pos[wall_indices]
+
+        edge_index = knn(coords, wall_pos, k=K)
+
+        F = feats.shape[1]
+        wall_features = torch.zeros((wall_indices.shape[0], F), dtype=graph.x.device)
+
+        for i in range(wall_indices.shape[0]):
+            neighbor_mask = edge_index[0] == i
+            neighbor_indices = edge_index[1][neighbor_mask]
+            if neighbor_indices.numel() > 0:
+                wall_features[i] = feats[neighbor_indices].mean(dim=0)
+            else:
+                wall_features[i] = 0
+
+        non_wall_mask = graph.x[:, self.node_type_index] != NodeType.WALL_BOUNDARY
+        non_wall_indices = non_wall_mask.nonzero(as_tuple=True)[0]
+        non_wall_pos = graph.pos[non_wall_indices]
+
+        dists = torch.cdist(non_wall_pos, wall_pos)
+        min_dists, min_idx = dists.min(dim=1)
+
+        d_min = min_dists.min()
+        d_max = min_dists.max()
+        if d_max == d_min:
+            weights = torch.ones_like(min_dists)
+        else:
+            weights = 1 - (min_dists - d_min) / (d_max - d_min)
+
+        new_features = torch.zeros((graph.x.shape[0], F), dtype=graph.x.device)
+        new_features[wall_indices] = wall_features
+        new_features[non_wall_indices] = weights.unsqueeze(1) * wall_features[min_idx]
+
+        new_g = Data(pos=graph.pos, x=new_features, edge_index=graph.edge_index)
 
     def __getitem__(self, index: int) -> Union[Data, Tuple[Data, torch.Tensor]]:
         """Retrieve a graph representation of a frame from a trajectory.

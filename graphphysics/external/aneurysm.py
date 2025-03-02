@@ -22,6 +22,7 @@ def aneurysm_node_type(graph: Data) -> torch.Tensor:
 
     return node_type.to(device)
 
+
 def build_features(graph: Data) -> Data:
     node_type = aneurysm_node_type(graph)
 
@@ -48,7 +49,7 @@ def build_features(graph: Data) -> Data:
 
     velocity_norm = torch.norm(graph.x[:, 0:3], dim=1)
     velocity_norm = velocity_norm.to(device).unsqueeze(1)
-    x_mask = [0, 1, 2, 4]   # Remove the wall_mask from inputs
+    x_mask = [0, 1, 2, 4]  # Remove the wall_mask from inputs
     graph.x = graph.x[:, x_mask]
     graph.x = torch.cat(
         (

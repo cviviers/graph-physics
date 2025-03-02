@@ -189,6 +189,7 @@ def get_dataset(
             add_edge_features=use_edge_feature,
             use_previous_data=use_previous_data,
             switch_to_val=switch_to_val,
+            node_type_index=param["index"]["node_type_index"],
         )
     else:
         raise ValueError(f"Dataset extension '{extension}' not supported.")

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import random
 
+
 def read_random_npz_in_latents():
     latents_dir = "latents/dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16"
 
@@ -11,7 +12,7 @@ def read_random_npz_in_latents():
     files = os.listdir(latents_dir)
 
     # Filter out the .npz files
-    npz_files = [f for f in files if f.endswith('.npz')]
+    npz_files = [f for f in files if f.endswith(".npz")]
 
     if not npz_files:
         raise FileNotFoundError("No .npz files found in the latents subdirectory.")
@@ -31,6 +32,7 @@ def read_random_npz_in_latents():
 
     return matrices
 
+
 if __name__ == "__main__":
     matrices = read_random_npz_in_latents()
 
@@ -46,7 +48,7 @@ if __name__ == "__main__":
 
     # Plot the data of the second matrix in 3D
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111, projection="3d")
 
     # Assuming the second matrix has shape (n, 3) where n is the number of points
     x = second_matrix[:, 0]
@@ -56,9 +58,9 @@ if __name__ == "__main__":
     ax.scatter(x, y, z)
 
     # Set labels
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('Z Label')
+    ax.set_xlabel("X Label")
+    ax.set_ylabel("Y Label")
+    ax.set_zlabel("Z Label")
 
     # Calculate limits for equal aspect ratio
     max_range = np.max([x.max() - x.min(), y.max() - y.min(), z.max() - z.min()]) / 2.0
