@@ -11,6 +11,9 @@ from graphphysics.dataset.dataset import BaseDataset
 from graphphysics.dataset.icp import iterative_closest_point
 from graphphysics.utils.nodetype import NodeType
 from graphphysics.utils.torch_graph import meshdata_to_graph
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+
 
 
 class XDMFDataset(BaseDataset):
@@ -79,6 +82,34 @@ class XDMFDataset(BaseDataset):
         coords_scaled = coords * scale + shift
 
         return coords_scaled
+
+    def plot_rescaled(self, graph: Data, coords: np.ndarray, index: int):
+        feats, coords = self.get_endcoding(index=index)
+        coords[:, [1, 2]] = coords[:, [2, 1]]
+        coords_scaled = self.scale_pos(graph, coords)
+        coords_scaled[:, 2] = -coords_scaled[:, 2]
+
+        pos_graph = graph.pos
+
+        graph_centroid = np.mean(pos_graph, axis=0)
+        coords_centroid = np.mean(coords_scaled, axis=0)
+
+        translation_vector = graph_centroid - coords_centroid
+        coords_scaled[:, 2] += translation_vector[2]
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        ax.scatter(pos_graph[:, 0], pos_graph[:, 1], pos_graph[:, 2], c='r', marker='o', label='Graph')
+        ax.scatter(coords_scaled[:, 0], coords_scaled[:, 1], coords_scaled[:, 2], c='b', marker='^', label='Coords')
+
+        ax.set_xlabel('X Label')
+        ax.set_ylabel('Y Label')
+        ax.set_zlabel('Z Label')
+        ax.legend()
+
+        plt.show()
+
 
     def apply_icp(
         self, graph: Data, coords: np.ndarray, max_iterations=20, tolerance=0.001

@@ -13,3 +13,7 @@ nohup.out
 .DS_Store
 .idea/
 meshes/
+dataset_output/
+coarse_dataset/
+surface_dataset/
+output/
