@@ -13,6 +13,7 @@ from graphphysics.utils.nodetype import NodeType
 from graphphysics.utils.torch_graph import meshdata_to_graph
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 
 
@@ -62,20 +63,20 @@ class XDMFDataset(BaseDataset):
         """Returns the number of trajectories in the dataset."""
         return self._size_dataset
 
-    def get_endcoding(self, index: int):
-        file_path = self.npzfile_paths[index]
+    def get_encoding(self, file_name: str) -> Tuple[np.ndarray, np.ndarray]:
+        file_name += ".npz"
 
-        data_npz = np.load(file_path)
+        data_npz = np.load(file_name)
         feats = data_npz["feats"]
         coords = data_npz["coords"]
 
         return feats, coords
 
     def scale_pos(self, graph: Data, coords: np.ndarray):
-        pos_graph = graph.pos
+        pos_graph = graph.pos.cpu().numpy()
 
-        g_min, g_max = pos_graph.min(dim=0)[0], pos_graph.max(dim=0)[0]
-        pc_min, pc_max = coords.min(dim=0)[0], coords.max(dim=0)[0]
+        g_min, g_max = pos_graph.min(axis=0), pos_graph.max(axis=0)
+        pc_min, pc_max = coords.min(axis=0), coords.max(axis=0)
 
         scale = (g_max - g_min) / (pc_max - pc_min)
         shift = g_min - pc_min * scale
@@ -83,32 +84,41 @@ class XDMFDataset(BaseDataset):
 
         return coords_scaled
 
-    def plot_rescaled(self, graph: Data, coords: np.ndarray, index: int):
-        feats, coords = self.get_endcoding(index=index)
+    def plot_rescaled(self, graph: Data, index: int, file_name: str):
+        feats, coords = self.get_encoding(file_name=file_name)
         coords[:, [1, 2]] = coords[:, [2, 1]]
         coords_scaled = self.scale_pos(graph, coords)
+        coords_scaled = torch.tensor(coords_scaled, dtype=graph.pos.dtype, device=graph.pos.device)
         coords_scaled[:, 2] = -coords_scaled[:, 2]
 
         pos_graph = graph.pos
 
-        graph_centroid = np.mean(pos_graph, axis=0)
-        coords_centroid = np.mean(coords_scaled, axis=0)
+        graph_centroid = np.mean(pos_graph.cpu().numpy(), axis=0)
+        coords_centroid = np.mean(coords_scaled.cpu().numpy(), axis=0)
 
         translation_vector = graph_centroid - coords_centroid
         coords_scaled[:, 2] += translation_vector[2]
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
 
-        ax.scatter(pos_graph[:, 0], pos_graph[:, 1], pos_graph[:, 2], c='r', marker='o', label='Graph')
-        ax.scatter(coords_scaled[:, 0], coords_scaled[:, 1], coords_scaled[:, 2], c='b', marker='^', label='Coords')
+        output_folder = "output2"
+        os.makedirs(output_folder, exist_ok=True)
 
-        ax.set_xlabel('X Label')
-        ax.set_ylabel('Y Label')
-        ax.set_zlabel('Z Label')
-        ax.legend()
+        # Save graph positions to a VTK file
+        graph_vtk_path = os.path.join(output_folder, f"graph_{index}.vtk")
+        graph_points = pos_graph.cpu().numpy()
+        graph_cells = np.arange(graph_points.shape[0]).reshape(-1, 1)
+        graph_mesh = meshio.Mesh(points=graph_points, cells={"vertex": graph_cells})
+        meshio.write(graph_vtk_path, graph_mesh)
 
-        plt.show()
+        # Save scaled coordinates to a VTK file
+        coords_vtk_path = os.path.join(output_folder, f"coords_{index}.vtk")
+        coords_points = coords_scaled.cpu().numpy()
+        coords_cells = np.arange(coords_points.shape[0]).reshape(-1, 1)
+        coords_mesh = meshio.Mesh(points=coords_points, cells={"vertex": coords_cells})
+        meshio.write(coords_vtk_path, coords_mesh)
+
+        print(f"Graph saved to {graph_vtk_path}")
+        print(f"Coords saved to {coords_vtk_path}")
 
 
     def apply_icp(
@@ -165,6 +175,31 @@ class XDMFDataset(BaseDataset):
         new_features[non_wall_indices] = weights.unsqueeze(1) * wall_features[min_idx]
 
         new_g = Data(pos=graph.pos, x=new_features, edge_index=graph.edge_index)
+
+        return new_features
+
+    def apply_new_features(self, graph, index):
+        file_path = self.file_paths[index]
+        feats, coords = self.get_encoding(file_name=file_path)
+        coords[:, [1, 2]] = coords[:, [2, 1]]
+        coords_scaled = self.scale_pos(graph, coords)
+        coords_scaled = torch.tensor(coords_scaled, dtype=graph.pos.dtype, device=graph.pos.device)
+        coords_scaled[:, 2] = -coords_scaled[:, 2]
+
+        pos_graph = graph.pos
+
+        graph_centroid = np.mean(pos_graph.cpu().numpy(), axis=0)
+        coords_centroid = np.mean(coords_scaled.cpu().numpy(), axis=0)
+
+        translation_vector = graph_centroid - coords_centroid
+        coords_scaled[:, 2] += translation_vector[2]
+
+        new_features = self.add_encoding(graph, feats, coords_scaled, K=6)
+
+        graph.x = torch.cat([graph.x, new_features], dim=1)
+
+        return graph
+        
 
     def __getitem__(self, index: int) -> Union[Data, Tuple[Data, torch.Tensor]]:
         """Retrieve a graph representation of a frame from a trajectory.
@@ -270,6 +305,8 @@ class XDMFDataset(BaseDataset):
 
         del graph.previous_data
         graph.traj_index = traj_index
+
+        graph = self.apply_new_features(graph, index)
 
         if selected_indices is not None:
             return graph, selected_indices
