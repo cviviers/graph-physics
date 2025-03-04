@@ -64,7 +64,7 @@ class XDMFDataset(BaseDataset):
         return self._size_dataset
 
     def get_encoding(self, file_name: str) -> Tuple[np.ndarray, np.ndarray]:
-        file_name += ".npz"
+        file_name = file_name.replace(".xdmf", ".npz")
 
         data_npz = np.load(file_name)
         feats = data_npz["feats"]
@@ -122,13 +122,11 @@ class XDMFDataset(BaseDataset):
 
 
     def apply_icp(
-        self, graph: Data, coords: np.ndarray, max_iterations=20, tolerance=0.001
+        self, graph: Data, coords_scaled: np.ndarray, max_iterations=20, tolerance=0.001
     ):
         wall_mask = graph.x[:, self.node_type_index] == NodeType.WALL_BOUNDARY
         wall_indices = wall_mask.nonzero(as_tuple=True)[0]
         pos_graph = graph.pos[wall_indices]
-
-        coords_scaled = self.scale_pos(graph, coords)
 
         aligned_coords, _, _ = iterative_closest_point(
             coords_scaled, pos_graph, max_iterations=max_iterations, tolerance=tolerance
@@ -137,8 +135,8 @@ class XDMFDataset(BaseDataset):
         return aligned_coords
 
     def add_encoding(
-        self, graph: Data, feats: np.ndarray, coords: np.ndarray, K: int = 6
-    ):
+        self, graph: Data, feats: torch.Tensor, coords: np.ndarray, K: int=6
+    ) -> torch.Tensor:
         wall_mask = graph.x[:, self.node_type_index] == NodeType.WALL_BOUNDARY
         wall_indices = wall_mask.nonzero(as_tuple=True)[0]
         wall_pos = graph.pos[wall_indices]
@@ -146,7 +144,7 @@ class XDMFDataset(BaseDataset):
         edge_index = knn(coords, wall_pos, k=K)
 
         F = feats.shape[1]
-        wall_features = torch.zeros((wall_indices.shape[0], F), dtype=graph.x.device)
+        wall_features = torch.zeros((wall_indices.shape[0], F), dtype=graph.x.dtype, device=graph.x.device)
 
         for i in range(wall_indices.shape[0]):
             neighbor_mask = edge_index[0] == i
@@ -170,7 +168,7 @@ class XDMFDataset(BaseDataset):
         else:
             weights = 1 - (min_dists - d_min) / (d_max - d_min)
 
-        new_features = torch.zeros((graph.x.shape[0], F), dtype=graph.x.device)
+        new_features = torch.zeros((graph.x.shape[0], F), dtype=graph.x.dtype, device=graph.x.device)
         new_features[wall_indices] = wall_features
         new_features[non_wall_indices] = weights.unsqueeze(1) * wall_features[min_idx]
 
@@ -178,9 +176,11 @@ class XDMFDataset(BaseDataset):
 
         return new_features
 
-    def apply_new_features(self, graph, index):
-        file_path = self.file_paths[index]
+    def apply_new_features(self, graph: Data):
+        file_path = self.file_paths[graph.traj_index]
         feats, coords = self.get_encoding(file_name=file_path)
+        feats = torch.tensor(feats, dtype=graph.x.dtype, device=graph.x.device)
+        
         coords[:, [1, 2]] = coords[:, [2, 1]]
         coords_scaled = self.scale_pos(graph, coords)
         coords_scaled = torch.tensor(coords_scaled, dtype=graph.pos.dtype, device=graph.pos.device)
@@ -193,6 +193,8 @@ class XDMFDataset(BaseDataset):
 
         translation_vector = graph_centroid - coords_centroid
         coords_scaled[:, 2] += translation_vector[2]
+
+        # coords_scaled = self.apply_icp(graph, coords_scaled, max_iterations=20, tolerance=0.001)
 
         new_features = self.add_encoding(graph, feats, coords_scaled, K=6)
 
@@ -306,7 +308,7 @@ class XDMFDataset(BaseDataset):
         del graph.previous_data
         graph.traj_index = traj_index
 
-        graph = self.apply_new_features(graph, index)
+        graph = self.apply_new_features(graph)
 
         if selected_indices is not None:
             return graph, selected_indices
