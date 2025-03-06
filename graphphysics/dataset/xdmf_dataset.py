@@ -172,11 +172,9 @@ class XDMFDataset(BaseDataset):
         new_features[wall_indices] = wall_features
         new_features[non_wall_indices] = weights.unsqueeze(1) * wall_features[min_idx]
 
-        new_g = Data(pos=graph.pos, x=new_features, edge_index=graph.edge_index)
-
         return new_features
 
-    def apply_new_features(self, graph: Data):
+    def get_new_features(self, graph: Data):
         file_path = self.file_paths[graph.traj_index]
         feats, coords = self.get_encoding(file_name=file_path)
         feats = torch.tensor(feats, dtype=graph.x.dtype, device=graph.x.device)
@@ -198,9 +196,31 @@ class XDMFDataset(BaseDataset):
 
         new_features = self.add_encoding(graph, feats, coords_scaled, K=6)
 
-        graph.x = torch.cat([graph.x, new_features], dim=1)
+        return new_features
 
+    def add_new_features(self, graph: Data): 
+        features_path = 'data.npz'
+        index_graph = graph.traj_index
+        if os.path.exists(features_path):
+            features_npz = np.load(features_path)
+            features_dict = dict(features_npz)
+            features_npz.close()
+            if str(index_graph) in features_dict:
+                features = features_dict[str(index_graph)]
+                features = torch.tensor(features, dtype=graph.x.dtype, device=graph.x.device)
+            else:
+                features = self.get_new_features(graph)
+                features_dict[str(index_graph)] = features.cpu().numpy()
+                np.savez(features_path, **features_dict)
+        else: 
+            features = self.get_new_features(graph)
+            features_dict = {str(index_graph): features.cpu().numpy()}
+            np.savez(features_path, **features_dict)
+        
+        graph.x = torch.cat([graph.x, features], dim=1)
         return graph
+
+
         
 
     def __getitem__(self, index: int) -> Union[Data, Tuple[Data, torch.Tensor]]:
@@ -308,8 +328,8 @@ class XDMFDataset(BaseDataset):
         del graph.previous_data
         graph.traj_index = traj_index
 
-        graph = self.apply_new_features(graph)
-
+        graph = self.add_new_features(graph)
+        
         if selected_indices is not None:
             return graph, selected_indices
         else:
