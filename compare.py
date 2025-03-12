@@ -6,6 +6,7 @@ import trimesh
 from sklearn.neighbors import NearestNeighbors
 import vtk
 
+
 def compute_best_fit_transform(source_points, target_points):
     """
     Compute the rigid transformation that best aligns the source points to the target points.
@@ -48,6 +49,7 @@ def compute_best_fit_transform(source_points, target_points):
     translation_vector = target_centroid - np.dot(rotation_matrix, source_centroid)
 
     return rotation_matrix, translation_vector
+
 
 def iterative_closest_point(
     source_cloud, target_cloud, max_iterations=20, tolerance=0.001
@@ -102,20 +104,24 @@ def iterative_closest_point(
 
     return source_cloud, cumulative_rotation, cumulative_translation
 
+
 def load_files():
     coarse_dataset_folder = "surface_dataset"
-    latents_folder = "dataset_output/latents/dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16"
+    latents_folder = (
+        "dataset_output/latents/dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16"
+    )
 
     # Check if the coarse_dataset folder exists
     if not os.path.exists(coarse_dataset_folder):
         raise FileNotFoundError(f"The folder {coarse_dataset_folder} does not exist.")
 
     # Get list of obj files in the coarse_dataset folder
-    obj_files = [f for f in os.listdir(coarse_dataset_folder) if f.endswith('.obj')]
+    obj_files = [f for f in os.listdir(coarse_dataset_folder) if f.endswith(".obj")]
     if len(obj_files) == 0:
         raise FileNotFoundError("No obj files found in the coarse_dataset folder.")
 
     return obj_files, coarse_dataset_folder, latents_folder
+
 
 def save_vtk(points, filename):
     """
@@ -136,6 +142,7 @@ def save_vtk(points, filename):
     writer.SetInputData(polydata)
     writer.Write()
 
+
 def plot_data(obj_path, npz_path, output_folder):
     # Load obj file
     mesh = trimesh.load(obj_path)
@@ -143,7 +150,7 @@ def plot_data(obj_path, npz_path, output_folder):
 
     # Load npz file
     npz_data = np.load(npz_path)
-    npz_points = npz_data['coords']
+    npz_points = npz_data["coords"]
 
     # Permute the second and third columns of npz_points
     npz_points[:, [1, 2]] = npz_points[:, [2, 1]]
@@ -171,10 +178,17 @@ def plot_data(obj_path, npz_path, output_folder):
     # npz_points_aligned, _, _  = iterative_closest_point(npz_points, obj_points)
 
     # Save the original and aligned points to VTK files
-    obj_filename = os.path.join(output_folder, os.path.splitext(os.path.basename(obj_path))[0] + "_obj_points.vtk")
-    npz_filename = os.path.join(output_folder, os.path.splitext(os.path.basename(npz_path))[0] + "_npz_points_aligned.vtk")
+    obj_filename = os.path.join(
+        output_folder,
+        os.path.splitext(os.path.basename(obj_path))[0] + "_obj_points.vtk",
+    )
+    npz_filename = os.path.join(
+        output_folder,
+        os.path.splitext(os.path.basename(npz_path))[0] + "_npz_points_aligned.vtk",
+    )
     save_vtk(obj_points, obj_filename)
     save_vtk(npz_points, npz_filename)
+
 
 def scale_pos(obj_points: np.ndarray, coords: np.ndarray):
     obj_min, obj_max = obj_points.min(axis=0), obj_points.max(axis=0)
@@ -186,6 +200,7 @@ def scale_pos(obj_points: np.ndarray, coords: np.ndarray):
 
     return coords_scaled
 
+
 # Main execution
 if __name__ == "__main__":
     obj_files, coarse_dataset_folder, latents_folder = load_files()
@@ -194,7 +209,7 @@ if __name__ == "__main__":
 
     for obj_file in obj_files:
         obj_path = os.path.join(coarse_dataset_folder, obj_file)
-        npz_file_name = os.path.splitext(obj_file)[0] + '.npz'
+        npz_file_name = os.path.splitext(obj_file)[0] + ".npz"
         npz_path = os.path.join(latents_folder, npz_file_name)
 
         if not os.path.exists(npz_path):

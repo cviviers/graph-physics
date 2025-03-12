@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 
-
 class XDMFDataset(BaseDataset):
     def __init__(
         self,
@@ -29,6 +28,7 @@ class XDMFDataset(BaseDataset):
         use_previous_data: bool = False,
         switch_to_val: bool = False,
         node_type_index: int = 0,
+        cache_dir: str = "cache",  # Directory for caching features
     ):
         super().__init__(
             meta_path=meta_path,
@@ -57,6 +57,10 @@ class XDMFDataset(BaseDataset):
             for f in os.listdir(xdmf_folder)
             if os.path.isfile(os.path.join(xdmf_folder, f)) and f.endswith(".npz")
         ]
+
+        # Initialize caching mechanism
+        self.cache_dir = cache_dir
+        os.makedirs(self.cache_dir, exist_ok=True)
 
     @property
     def size_dataset(self) -> int:
@@ -88,7 +92,9 @@ class XDMFDataset(BaseDataset):
         feats, coords = self.get_encoding(file_name=file_name)
         coords[:, [1, 2]] = coords[:, [2, 1]]
         coords_scaled = self.scale_pos(graph, coords)
-        coords_scaled = torch.tensor(coords_scaled, dtype=graph.pos.dtype, device=graph.pos.device)
+        coords_scaled = torch.tensor(
+            coords_scaled, dtype=graph.pos.dtype, device=graph.pos.device
+        )
         coords_scaled[:, 2] = -coords_scaled[:, 2]
 
         pos_graph = graph.pos
@@ -98,7 +104,6 @@ class XDMFDataset(BaseDataset):
 
         translation_vector = graph_centroid - coords_centroid
         coords_scaled[:, 2] += translation_vector[2]
-
 
         output_folder = "output2"
         os.makedirs(output_folder, exist_ok=True)
@@ -120,7 +125,6 @@ class XDMFDataset(BaseDataset):
         print(f"Graph saved to {graph_vtk_path}")
         print(f"Coords saved to {coords_vtk_path}")
 
-
     def apply_icp(
         self, graph: Data, coords_scaled: np.ndarray, max_iterations=20, tolerance=0.001
     ):
@@ -135,7 +139,7 @@ class XDMFDataset(BaseDataset):
         return aligned_coords
 
     def add_encoding(
-        self, graph: Data, feats: torch.Tensor, coords: np.ndarray, K: int=6
+        self, graph: Data, feats: torch.Tensor, coords: np.ndarray, K: int = 6
     ) -> torch.Tensor:
         wall_mask = graph.x[:, self.node_type_index] == NodeType.WALL_BOUNDARY
         wall_indices = wall_mask.nonzero(as_tuple=True)[0]
@@ -144,7 +148,9 @@ class XDMFDataset(BaseDataset):
         edge_index = knn(coords, wall_pos, k=K)
 
         F = feats.shape[1]
-        wall_features = torch.zeros((wall_indices.shape[0], F), dtype=graph.x.dtype, device=graph.x.device)
+        wall_features = torch.zeros(
+            (wall_indices.shape[0], F), dtype=graph.x.dtype, device=graph.x.device
+        )
 
         for i in range(wall_indices.shape[0]):
             neighbor_mask = edge_index[0] == i
@@ -168,7 +174,9 @@ class XDMFDataset(BaseDataset):
         else:
             weights = 1 - (min_dists - d_min) / (d_max - d_min)
 
-        new_features = torch.zeros((graph.x.shape[0], F), dtype=graph.x.dtype, device=graph.x.device)
+        new_features = torch.zeros(
+            (graph.x.shape[0], F), dtype=graph.x.dtype, device=graph.x.device
+        )
         new_features[wall_indices] = wall_features
         new_features[non_wall_indices] = weights.unsqueeze(1) * wall_features[min_idx]
 
@@ -178,10 +186,12 @@ class XDMFDataset(BaseDataset):
         file_path = self.file_paths[graph.traj_index]
         feats, coords = self.get_encoding(file_name=file_path)
         feats = torch.tensor(feats, dtype=graph.x.dtype, device=graph.x.device)
-        
+
         coords[:, [1, 2]] = coords[:, [2, 1]]
         coords_scaled = self.scale_pos(graph, coords)
-        coords_scaled = torch.tensor(coords_scaled, dtype=graph.pos.dtype, device=graph.pos.device)
+        coords_scaled = torch.tensor(
+            coords_scaled, dtype=graph.pos.dtype, device=graph.pos.device
+        )
         coords_scaled[:, 2] = -coords_scaled[:, 2]
 
         pos_graph = graph.pos
@@ -198,30 +208,30 @@ class XDMFDataset(BaseDataset):
 
         return new_features
 
-    def add_new_features(self, graph: Data): 
-        features_path = 'data.npz'
-        index_graph = graph.traj_index
-        if os.path.exists(features_path):
-            features_npz = np.load(features_path)
-            features_dict = dict(features_npz)
-            features_npz.close()
-            if str(index_graph) in features_dict:
-                features = features_dict[str(index_graph)]
-                features = torch.tensor(features, dtype=graph.x.dtype, device=graph.x.device)
-            else:
+    def add_new_features(self, graph: Data, index: int):
+        traj_index = graph.traj_index
+        cache_file = os.path.join(self.cache_dir, f"features_{traj_index}.pt")
+
+        if os.path.exists(cache_file):
+            try:
+                # Load features from cache
+                features = torch.load(cache_file)
+            except Exception as e:
+                print(f"Error loading cached features: {e}. Recalculating features.")
+                os.remove(cache_file)
                 features = self.get_new_features(graph)
-                features_dict[str(index_graph)] = features.cpu().numpy()
-                np.savez(features_path, **features_dict)
-        else: 
+                torch.save(features, cache_file)
+        else:
+            # Calculate features and save to cache
             features = self.get_new_features(graph)
-            features_dict = {str(index_graph): features.cpu().numpy()}
-            np.savez(features_path, **features_dict)
-        
+            torch.save(features, cache_file)
+
+        if graph.x.shape[0] != features.shape[0]:
+            features = self.get_new_features(graph)
+            torch.save(features, cache_file)
+
         graph.x = torch.cat([graph.x, features], dim=1)
         return graph
-
-
-        
 
     def __getitem__(self, index: int) -> Union[Data, Tuple[Data, torch.Tensor]]:
         """Retrieve a graph representation of a frame from a trajectory.
@@ -328,8 +338,8 @@ class XDMFDataset(BaseDataset):
         del graph.previous_data
         graph.traj_index = traj_index
 
-        graph = self.add_new_features(graph)
-        
+        graph = self.add_new_features(graph, index)
+
         if selected_indices is not None:
             return graph, selected_indices
         else:
