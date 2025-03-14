@@ -93,6 +93,13 @@ class LightningModule(L.LightningModule):
         # For one trajectory vizualization
         self.trajectory_to_save: list[Batch] = []
 
+        # Prediction
+        self.current_pred_trajectory = 0
+        self.prediction_trajectory: list[Batch] = []
+        self.prediction_trajectories: list[list[Batch]] = []
+        self.last_pred_prediction = None
+        self.last_previous_data_pred_prediction = None
+
     def forward(self, graph: Batch):
         return self.model(graph)
 
@@ -109,30 +116,51 @@ class LightningModule(L.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
-    def validation_step(self, batch: Batch, batch_idx: int):
-        # Determine if we need to reset the trajectory
-        if batch.traj_index > self.current_val_trajectory:
-            self.current_val_trajectory += 1
-            self.last_val_prediction = None
-            self.last_previous_data_prediction = None
+    def _save_trajectory_to_xdmf(
+        self, trajectory: list[Batch], save_dir: str, archive_filename: str
+    ):
+        os.makedirs(save_dir, exist_ok=True)
+        for idx, graph in enumerate(trajectory):
+            try:
+                mesh = convert_to_meshio_vtu(graph, add_all_data=True)
+                # Construct filename
+                filename = os.path.join(save_dir, f"graph_{idx}.vtu")
+                # Save the mesh
+                mesh.write(filename)
+            except Exception as e:
+                logger.error(
+                    f"Error saving graph {idx} at epoch {self.current_epoch}: {e}"
+                )
+        logger.info(f"Validation Trajectory saved at {save_dir}.")
 
-        # Prepare the batch for the current step
+        # Convert vtk files to XDMF/H5 file
+        try:
+            vtu_files = [
+                os.path.join(save_dir, f"graph_{idx}.vtu")
+                for idx in range(len(trajectory))
+            ]
+            vtu_to_xdmf(os.path.join(save_dir, archive_filename), vtu_files)
+        except Exception as e:
+            logger.error(f"Error compressing vtus at epoch {self.current_epoch}: {e}")
+
+    def _reset_validation_trajectory(self):
+        self.current_val_trajectory += 1
+        self.last_val_prediction = None
+        self.last_previous_data_prediction = None
+
+    def _make_prediction(self, batch, last_prediction, last_previous_data_prediction):
         batch = batch.clone()
-        if self.last_val_prediction is not None:
+        # Prepare the batch for the current step
+        if last_prediction is not None:
             # Update the batch with the last prediction
             batch.x[:, self.model.output_index_start : self.model.output_index_end] = (
-                self.last_val_prediction.detach()
+                last_prediction.detach()
             )
             if self.use_previous_data:
                 batch.x[:, self.previous_data_start : self.previous_data_end] = (
-                    self.last_previous_data_prediction.detach()
+                    last_previous_data_prediction.detach()
                 )
-
-        if self.current_val_trajectory == 0:
-            self.trajectory_to_save.append(batch)
-
         mask = build_mask(self.param, batch)
-        node_type = batch.x[:, self.model.node_type_index]
         target = batch.y
 
         current_output = batch.x[
@@ -142,16 +170,34 @@ class LightningModule(L.LightningModule):
         with torch.no_grad():
             _, _, predicted_outputs = self.model(batch)
 
-        # Apply mask to predicted outputs
+        # Apply mask to predicted outputs and update the last prediction
         predicted_outputs[mask] = target[mask]
+        last_prediction = predicted_outputs
+        if self.use_previous_data:
+            last_previous_data_prediction = predicted_outputs - current_output
+
+        return predicted_outputs, target, last_prediction, last_previous_data_prediction
+
+    def validation_step(self, batch: Batch, batch_idx: int):
+        # Determine if we need to reset the trajectory
+        if batch.traj_index > self.current_val_trajectory:
+            self._reset_validation_trajectory()
+
+        (
+            predicted_outputs,
+            target,
+            self.last_val_prediction,
+            self.last_previous_data_prediction,
+        ) = self._make_prediction(
+            batch, self.last_val_prediction, self.last_previous_data_prediction
+        )
+
+        if self.current_val_trajectory == 0:
+            self.trajectory_to_save.append(batch)
+        node_type = batch.x[:, self.model.node_type_index]
+
         self.val_step_outputs.append(predicted_outputs.cpu())
         self.val_step_targets.append(target.cpu())
-
-        self.last_val_prediction = predicted_outputs
-
-        if self.use_previous_data:
-            self.last_previous_data_prediction = predicted_outputs - current_output
-
         if self.K == 0:
             val_loss = self.loss(
                 target,
@@ -160,6 +206,14 @@ class LightningModule(L.LightningModule):
                 masks=self.loss_masks,
             )
             self.log("val_loss", val_loss, on_step=True, on_epoch=True, prog_bar=True)
+
+    def _reset_validation_epoch_end(self):
+        self.val_step_outputs.clear()
+        self.val_step_targets.clear()
+        self.current_val_trajectory = 0
+        self.last_val_prediction = None
+        self.last_previous_data_prediction = None
+        self.trajectory_to_save.clear()
 
     def on_validation_epoch_end(self):
         # Concatenate outputs and targets
@@ -178,41 +232,14 @@ class LightningModule(L.LightningModule):
             prog_bar=True,
         )
 
-        # Save trajectory graphs as .vtu files
+        # Save trajectory graphs
         save_dir = os.path.join("meshes", f"epoch_{self.current_epoch}")
-        os.makedirs(save_dir, exist_ok=True)
-        for idx, graph in enumerate(self.trajectory_to_save):
-            try:
-                mesh = convert_to_meshio_vtu(graph, add_all_data=True)
-                # Construct filename
-                filename = os.path.join(save_dir, f"graph_{idx}.vtu")
-                # Save the mesh
-                mesh.write(filename)
-            except Exception as e:
-                logger.error(
-                    f"Error saving graph {idx} at epoch {self.current_epoch}: {e}"
-                )
-        logger.info(f"Validation Trajectory saved at {save_dir}.")
-
-        # Convert vtk files to XDMF/H5 file
-        try:
-            vtu_files = [
-                os.path.join(save_dir, f"graph_{idx}.vtu")
-                for idx in range(len(self.trajectory_to_save))
-            ]
-            vtu_to_xdmf(
-                os.path.join(save_dir, f"graph_epoch_{self.current_epoch}"), vtu_files
-            )
-        except Exception as e:
-            logger.error(f"Error compressing vtus at epoch {self.current_epoch}: {e}")
+        self._save_trajectory_to_xdmf(
+            self.trajectory_to_save, save_dir, f"graph_epoch_{self.current_epoch}"
+        )
 
         # Clear stored outputs
-        self.val_step_outputs.clear()
-        self.val_step_targets.clear()
-        self.current_val_trajectory = 0
-        self.last_val_prediction = None
-        self.last_previous_data_prediction = None
-        self.trajectory_to_save.clear()
+        self._reset_validation_epoch_end()
 
     def configure_optimizers(self):
         """Initialize the optimizer"""
@@ -232,3 +259,46 @@ class LightningModule(L.LightningModule):
                 "frequency": 1,
             },
         }
+
+    def _reset_prediction_trajectory(self):
+        self.current_pred_trajectory += 1
+        self.prediction_trajectories.append(self.prediction_trajectory)
+        self.prediction_trajectory = []
+        self.last_pred_prediction = None
+        self.last_previous_data_pred_prediction = None
+
+    def predict_step(self, batch: Batch):
+        # Save precedent trajectory and reset the current one
+        if batch.traj_index > self.current_pred_trajectory:
+            self._reset_prediction_trajectory()
+        (
+            predicted_outputs,
+            target,
+            self.last_pred_prediction,
+            self.last_previous_data_pred_prediction,
+        ) = self._make_prediction(
+            batch, self.last_pred_prediction, self.last_previous_data_pred_prediction
+        )
+        self.prediction_trajectory.append(batch)
+
+    def _reset_predict_epoch_end(self):
+        self.prediction_trajectory.clear()
+        self.prediction_trajectories.clear()
+        self.last_pred_prediction = None
+        self.last_previous_data_pred_prediction = None
+        self.current_pred_trajectory = 0
+
+    def on_predict_epoch_end(self):
+        """ "
+        Converts all the predictions as .xdmf files.
+        """
+        # Add the last prediction trajectory
+        self.prediction_trajectories.append(self.prediction_trajectory)
+
+        save_dir = "predictions"
+        os.makedirs(save_dir, exist_ok=True)
+        for traj_idx, trajectory in enumerate(self.prediction_trajectories):
+            self._save_trajectory_to_xdmf(trajectory, save_dir, f"graph_{traj_idx}")
+
+        # Clear stored outputs
+        self._reset_predict_epoch_end()
