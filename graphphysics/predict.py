@@ -2,19 +2,16 @@ import json
 import warnings
 
 import torch
+import wandb
 from absl import app, flags
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from loguru import logger
 from torch_geometric.loader import DataLoader
 
-import wandb
 from graphphysics.external.aneurysm import build_features
 from graphphysics.training.lightning_module import LightningModule
-from graphphysics.training.parse_parameters import (
-    get_dataset,
-    get_preprocessing,
-)
+from graphphysics.training.parse_parameters import get_dataset, get_preprocessing
 
 warnings.filterwarnings(
     "ignore", ".*Trying to infer the `batch_size` from an ambiguous collection.*"
