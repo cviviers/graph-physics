@@ -176,7 +176,7 @@ class LightningModule(L.LightningModule):
         if self.use_previous_data:
             last_previous_data_prediction = predicted_outputs - current_output
 
-        return predicted_outputs, target, last_prediction, last_previous_data_prediction
+        return batch, predicted_outputs, target, last_prediction, last_previous_data_prediction
 
     def validation_step(self, batch: Batch, batch_idx: int):
         # Determine if we need to reset the trajectory
@@ -184,6 +184,7 @@ class LightningModule(L.LightningModule):
             self._reset_validation_trajectory()
 
         (
+            batch,
             predicted_outputs,
             target,
             self.last_val_prediction,
@@ -272,6 +273,7 @@ class LightningModule(L.LightningModule):
         if batch.traj_index > self.current_pred_trajectory:
             self._reset_prediction_trajectory()
         (
+            batch,
             predicted_outputs,
             target,
             self.last_pred_prediction,
