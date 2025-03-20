@@ -1,13 +1,15 @@
 import os
+import shutil
 
 import lightning as L
+import meshio
 import torch
 from loguru import logger
 from torch_geometric.data import Batch
 
 from graphphysics.training.parse_parameters import get_model, get_simulator
 from graphphysics.utils.loss import DiagonalGaussianMixtureNLLLoss, L2Loss
-from graphphysics.utils.meshio_mesh import convert_to_meshio_vtu, vtu_to_xdmf
+from graphphysics.utils.meshio_mesh import convert_to_meshio_vtu
 from graphphysics.utils.nodetype import NodeType
 from graphphysics.utils.scheduler import CosineWarmupScheduler
 
@@ -117,31 +119,38 @@ class LightningModule(L.LightningModule):
         return loss
 
     def _save_trajectory_to_xdmf(
-        self, trajectory: list[Batch], save_dir: str, archive_filename: str
+        self,
+        trajectory: list[Batch],
+        save_dir: str,
+        archive_filename: str,
+        timestep: float = 1,
     ):
         os.makedirs(save_dir, exist_ok=True)
-        for idx, graph in enumerate(trajectory):
-            try:
-                mesh = convert_to_meshio_vtu(graph, add_all_data=True)
-                # Construct filename
-                filename = os.path.join(save_dir, f"graph_{idx}.vtu")
-                # Save the mesh
-                mesh.write(filename)
-            except Exception as e:
-                logger.error(
-                    f"Error saving graph {idx} at epoch {self.current_epoch}: {e}"
-                )
-        logger.info(f"Validation Trajectory saved at {save_dir}.")
-
-        # Convert vtk files to XDMF/H5 file
+        archive_path = os.path.join(save_dir, archive_filename)
         try:
-            vtu_files = [
-                os.path.join(save_dir, f"graph_{idx}.vtu")
-                for idx in range(len(trajectory))
-            ]
-            vtu_to_xdmf(os.path.join(save_dir, archive_filename), vtu_files)
+            init_mesh = convert_to_meshio_vtu(trajectory[0], add_all_data=True)
+            points = init_mesh.points
+            cells = init_mesh.cells
+            with meshio.xdmf.TimeSeriesWriter(f"{archive_path}.xdmf") as writer:
+                # Write the mesh (points and cells) once
+                writer.write_points_cells(points, cells)
+                # Loop through time steps and write data
+                t = 0
+                for idx, graph in enumerate(trajectory):
+                    mesh = convert_to_meshio_vtu(graph, add_all_data=True)
+                    point_data = mesh.point_data
+                    cell_data = mesh.cell_data
+                    writer.write_data(t, point_data=point_data, cell_data=cell_data)
+                    t += timestep
+
         except Exception as e:
-            logger.error(f"Error compressing vtus at epoch {self.current_epoch}: {e}")
+            logger.error(f"Error saving graph {idx} at epoch {self.current_epoch}: {e}")
+        logger.info(f"Validation Trajectory saved at {save_dir}.")
+        # The H5 archive is systematically created in cwd, we just need to move it
+        shutil.move(
+            src=os.path.join(os.getcwd(), os.path.split(f"{archive_path}.h5")[1]),
+            dst=f"{archive_path}.h5",
+        )
 
     def _reset_validation_trajectory(self):
         self.current_val_trajectory += 1
@@ -176,7 +185,13 @@ class LightningModule(L.LightningModule):
         if self.use_previous_data:
             last_previous_data_prediction = predicted_outputs - current_output
 
-        return batch, predicted_outputs, target, last_prediction, last_previous_data_prediction
+        return (
+            batch,
+            predicted_outputs,
+            target,
+            last_prediction,
+            last_previous_data_prediction,
+        )
 
     def validation_step(self, batch: Batch, batch_idx: int):
         # Determine if we need to reset the trajectory
@@ -291,7 +306,7 @@ class LightningModule(L.LightningModule):
         self.current_pred_trajectory = 0
 
     def on_predict_epoch_end(self):
-        """ "
+        """
         Converts all the predictions as .xdmf files.
         """
         # Add the last prediction trajectory
