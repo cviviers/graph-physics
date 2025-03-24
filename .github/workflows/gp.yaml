@@ -34,9 +34,21 @@ jobs:
         pip install pytest-benchmark
         pip install pylint
         pip install black
+        pip install wandb
+        pip install absl-py
+        pip install "wandb[media]"
+        pip install panel
     - name: Linting code
       run: |
         make lint
     - name: Testing code
       run: |
         make test-gp
+    - name: Train & Predict Pipeline
+      env:
+        WANDB_MODE: offline
+      run: |
+        /usr/bin/Xvfb :99 -screen 0 1024x768x24 &
+        export DISPLAY=:99
+        python -c "import panel as pn; pn.extension('vtk')"
+        make train-predict
