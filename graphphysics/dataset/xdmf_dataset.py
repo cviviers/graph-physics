@@ -96,15 +96,15 @@ class XDMFDataset(BaseDataset):
 
         # Process point data and target data
         point_data = {
-            k: np.array(v).astype(self.meta["features"][k]["dtype"])
-            for k, v in point_data.items()
-            if k in self.meta["features"]
+            k: np.array(mesh.point_data[k]).astype(self.meta["features"][k]["dtype"])
+            for k in self.meta["features"]
+            if k in mesh.point_data.keys()
         }
 
         target_data = {
-            k: np.array(v).astype(self.meta["features"][k]["dtype"])
-            for k, v in target_point_data.items()
-            if k in self.meta["features"]
+            k: np.array(target_point_data[k]).astype(self.meta["features"][k]["dtype"])
+            for k in self.meta["features"]
+            if k in target_point_data.keys()
             and self.meta["features"][k]["type"] == "dynamic"
         }
 
@@ -127,9 +127,9 @@ class XDMFDataset(BaseDataset):
 
         if self.use_previous_data:
             previous = {
-                k: np.array(v).astype(self.meta["features"][k]["dtype"])
-                for k, v in previous_data.items()
-                if k in self.meta["features"]
+                k: np.array(previous_data[k]).astype(self.meta["features"][k]["dtype"])
+                for k in self.meta["features"]
+                if k in previous_data.keys()
                 and self.meta["features"][k]["type"] == "dynamic"
             }
             _reshape_array(previous)
