@@ -691,12 +691,16 @@ class GraphNetBlock(MessagePassing):
         row, col = edge_index
         x_i = x[col]  # Target node features
         x_j = x[row]  # Source node features
-        edge_attr = self.edge_update(edge_attr, x_i, x_j)
+        edge_attr_ = self.edge_update(edge_attr, x_i, x_j)
 
         # Perform message passing and update node features
-        x = self.propagate(
-            edge_index, x=x, edge_attr=edge_attr, size=(x.size(0), x.size(0))
+        x_ = self.propagate(
+            edge_index, x=x, edge_attr=edge_attr_, size=(x.size(0), x.size(0))
         )
+
+        edge_attr = edge_attr + edge_attr_
+        x = x + x_
+
         return x, edge_attr
 
     def edge_update(
