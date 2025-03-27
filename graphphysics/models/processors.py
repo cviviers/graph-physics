@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
+from loguru import logger
 from torch_geometric.data import Data
+from torch_geometric.nn import TransformerConv
 
 from graphphysics.models.layers import (
     DiagonalGMMHead,
@@ -14,9 +16,12 @@ try:
     import dgl.sparse as dglsp
 
     HAS_DGL_SPARSE = True
-except ImportError:
+except ImportError as e:
     HAS_DGL_SPARSE = False
     dglsp = None
+    logger.critical(
+        f"Failed to import DGL. Transformer architecture will default to torch_geometric.TransformerConv. Reason: {e}"
+    )
 
 
 class EncodeProcessDecode(nn.Module):
@@ -212,17 +217,32 @@ class EncodeTransformDecode(nn.Module):
                         temperature=temperature,
                     )
 
-        self.processor_list = nn.ModuleList(
-            [
-                Transformer(
-                    input_dim=hidden_size,
-                    output_dim=hidden_size,
-                    num_heads=num_heads,
-                    use_proj_bias=use_proj_bias,
-                    use_separate_proj_weight=use_separate_proj_weight,
-                )
-                for _ in range(message_passing_num)
-            ]
+        self.processor_list = (
+            nn.ModuleList(
+                [
+                    Transformer(
+                        input_dim=hidden_size,
+                        output_dim=hidden_size,
+                        num_heads=num_heads,
+                        use_proj_bias=use_proj_bias,
+                        use_separate_proj_weight=use_separate_proj_weight,
+                    )
+                    for _ in range(message_passing_num)
+                ]
+            )
+            if HAS_DGL_SPARSE
+            else nn.ModuleList(
+                [
+                    TransformerConv(
+                        in_channels=hidden_size,
+                        out_channels=hidden_size,
+                        heads=num_heads,
+                        concat=False,
+                        beta=True,
+                    )
+                    for _ in range(message_passing_num)
+                ]
+            )
         )
 
     def forward(self, graph: Data) -> torch.Tensor:
@@ -244,11 +264,11 @@ class EncodeTransformDecode(nn.Module):
 
         if HAS_DGL_SPARSE:
             adj = dglsp.spmatrix(indices=edge_index, shape=(x.shape[0], x.shape[0]))
+            for block in self.processor_list:
+                x = block(x, adj)
         else:
-            adj = None
-
-        for block in self.processor_list:
-            x = block(x, adj)
+            for block in self.processor_list:
+                x = block(x, edge_index)
 
         if self.only_processor:
             return x
