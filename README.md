@@ -8,7 +8,7 @@ This repository let's you train Graph Neural Networks on meshes (e.g. fluid dyna
 It is based on the work from different papers:
 - [Learning Mesh-Based Simulation with Graph Networks](https://arxiv.org/abs/2010.03409)
 - [Multi-Grid Graph Neural Networks with Self-Attention for Computational Mechanics](https://arxiv.org/pdf/2409.11899)
-- [MeshMask: Physics Simulations with Masked Graph Neural Networks]()
+- [MeshMask: Physics Simulations with Masked Graph Neural Networks](https://arxiv.org/pdf/2501.08738)
 - [Training Transformers to Simulate Complex Physics]()
 
 We offer a simple training script to:
@@ -28,8 +28,8 @@ At the moment, the repository supports the following:
   * [x] .xdmf based (if you have .vtu, .vtk etc, you can easily convert them to .xdmf)
 - training methods and augmentations
   * [x] K-hop neighbours 
-  * [ ] Nodes Masking
-  * [ ] Augmented Adjacency Matrix
+  * [x] Nodes Masking
+  * [x] Augmented Adjacency Matrix
   * [ ] Sub-meshs
 
 Feel free to open a PR if you want to implement a new feature, or an issue to request one.
@@ -73,9 +73,9 @@ We use [Weights and Biases](https://wandb.ai/site) to log most information durin
 
 We also save:
 - Images of ground truth and 1-step prediction for specific indices
-  - `LogPyVistaPredictionsCallback(dataset=val_dataset, indices=[1, 50, 100])` in [train.py](https://github.com/DonsetPG/graph-physics/blob/main/graphphysics/train.py)
+  - `LogPyVistaPredictionsCallback(dataset=val_dataset, indices=[1, 2, 3])` in [train.py](https://github.com/DonsetPG/graph-physics/blob/main/graphphysics/train.py)
 - Video of ground truth and auto regressive prediction between the first and the last index of the same `indices` list as above
-- Meshes of auto regressive prediction as `.vtk` file for the first trajectory of the validation dataset.
+- Meshes of auto regressive prediction as `.xdmf` file for the first trajectory of the validation dataset.
 
 > [!WARNING]  
 > If saving thoses meshes takes too much space, you can 1. monitor the disk usage using Weights and Biases, 2. Remove this functionnality in [lightning_module.py](https://github.com/DonsetPG/graph-physics/blob/0c9b6af20a25e7d08f2731efdfe4911f34fbc274/graphphysics/training/lightning_module.py#L154) (see the code below)
@@ -115,7 +115,8 @@ pip install pytest==8.0.1
 pip install meshio==5.3.5
 pip install h5py==3.10.0
 
-pip install pyvista lightning wandb
+!pip install pyvista lightning==2.5.0 wandb "wandb[media]"
+!pip install pytorch-lightning==2.5.0 torchmetrics==1.6.3
 ```
 
 ### DGL
@@ -300,6 +301,8 @@ You can define one or several functions that takes a graph as an input, and retu
 
 > [!NOTE]  
 > In the case where you might need the previous graph as well (to compute acceleration for example, you can pass `get_previous_data` in the `get_dataset` function, and you will be able to access it using the `previous_data` attribute: `graph.previous_data`)
+> You can check [build_features](https://github.com/DonsetPG/graph-physics/blob/main/graphphysics/external/aneurysm.py) where we use `previous_velocity = torch.tensor(graph.previous_data["Vitesse"], device=device)`
+> It's important to note to if you do so, those previous data also need to be updated autoregressively during the validation steps. To do so, we added 2 parameters in `train.py`: `previous_data_start` and `previous_data_end`. By default, they are set to 4 and 7. This works if for example, you set the acceleration (computed using the previous velocity) at indexes 4, 5 and 6.
 
 For example, let's imagine we want to add the nodes position as a feature, one could define the following function: 
 
@@ -329,6 +332,18 @@ def add_pos(graph: Data) -> Data:
 </details>
 
 You can find more examples regarding adding features and building node type [here](https://github.com/DonsetPG/graph-physics/tree/main/graphphysics/external).
+
+We simply then call the function `add_pos` in `get_preprocessing`:
+
+```python
+# Build preprocessing function
+preprocessing = get_preprocessing(
+    param=parameters,
+    device=device,
+    use_edge_feature=use_edge_feature,
+    extra_node_features=add_pos,
+)
+```
 
 
 ### Architecture
