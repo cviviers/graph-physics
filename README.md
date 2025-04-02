@@ -20,7 +20,7 @@ The code is based on Pytorch, and a JAX extension might follow at some point.
 
 At the moment, the repository supports the following:
 - architecture:
-  * [x] Message Passing
+  * [x] Mesh Graph Net
   * [x] Transformers
   * [ ] Multigrid
 - dataset:
