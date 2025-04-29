@@ -136,7 +136,11 @@ class LightningModule(L.LightningModule):
             cells = init_mesh.cells
             xdmf_filename = (
                 f"{archive_path}_{trajectory[0].id[0]}.xdmf"
-                if (add_id and trajectory[0].id[0] is not None)
+                if (
+                    add_id
+                    and hasattr(trajectory[0], "id")
+                    and trajectory[0].id[0] is not None
+                )
                 else f"{archive_path}.xdmf"
             )
             with meshio.xdmf.TimeSeriesWriter(xdmf_filename) as writer:
@@ -328,14 +332,21 @@ class LightningModule(L.LightningModule):
 
         save_dir = "predictions"
         os.makedirs(save_dir, exist_ok=True)
-        for trajectory in self.prediction_trajectories:
+        for traj_idx, trajectory in enumerate(self.prediction_trajectories):
             self._save_trajectory_to_xdmf(
                 trajectory,
                 save_dir,
-                "graph",
+                f"graph_{traj_idx}",
                 timestep=self.timestep,
                 add_id=True,
             )
 
         # Clear stored outputs
         self._reset_predict_epoch_end()
+
+    def _init_save_trajectory(self):
+        """
+        Initialize trajectory to save by adding input frames where
+        no prediction is made (t=0 and t=dt if using previous data)
+        """
+        raise (NotImplementedError("To be implemented"))
