@@ -400,7 +400,6 @@ def build_preprocessing(
                     world_pos_index_end=world_pos_parameters["world_pos_index_end"],
                     node_type_index=world_pos_parameters["node_type_index"],
                 ),
-                _3d_face_to_edge,
                 T.FaceToEdge(remove_faces=False),
                 partial(
                     add_world_edges,
