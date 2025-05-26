@@ -4,7 +4,7 @@ import warnings
 
 import torch
 from absl import app, flags
-from lightning.pytorch import Trainer
+from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 from loguru import logger
@@ -30,6 +30,7 @@ torch.set_float32_matmul_precision("high")
 FLAGS = flags.FLAGS
 flags.DEFINE_string("project_name", "my_project", "Name of the WandB project")
 flags.DEFINE_integer("num_epochs", 10, "Number of epochs")
+flags.DEFINE_integer("seed", 42, "Random seed")
 flags.DEFINE_float("init_lr", 0.001, "Initial learning rate")
 flags.DEFINE_integer("batch_size", 2, "Batch size")
 flags.DEFINE_integer("warmup", 1000, "Learning rate warmup steps")
@@ -80,6 +81,8 @@ def main(argv):
     use_previous_data = FLAGS.use_previous_data
     previous_data_start = FLAGS.previous_data_start
     previous_data_end = FLAGS.previous_data_end
+
+    seed_everything(FLAGS.seed, workers=True)
 
     # Build preprocessing function
     preprocessing = get_preprocessing(
