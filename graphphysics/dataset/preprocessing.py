@@ -116,7 +116,7 @@ def add_world_edges(
         return torch.Tensor(pairs.T).long()
 
     world_pos = graph.x[:, world_pos_index_start:world_pos_index_end]
-    added_edges = _close_pairs_ckdtree(world_pos, radius)
+    added_edges = _close_pairs_ckdtree(world_pos, radius).to(graph.x.device)
 
     type = graph.x[:, node_type_index]
 
