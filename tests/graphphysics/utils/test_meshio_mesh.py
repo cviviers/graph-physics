@@ -133,12 +133,10 @@ class TestVtuToXdmf(unittest.TestCase):
         """Test 2D vtus compression"""
         vtu_to_xdmf(self.filename, self.files_2d, remove_vtus=False)
 
-        # Check that both archive files exist
         self.assertTrue(os.path.exists(f"{self.filename}.h5"))
         self.assertTrue(os.path.exists(f"{self.filename}.xdmf"))
 
         vtu_meshes = [meshio.read(f) for f in self.files_2d]
-        # This block ensures the file is closed before removal
         with meshio.xdmf.TimeSeriesReader(f"{self.filename}.xdmf") as reader:
             points, cells = reader.read_points_cells()
             self.assertEqual(len(points), len(vtu_meshes[0].points))
@@ -150,7 +148,7 @@ class TestVtuToXdmf(unittest.TestCase):
                     self.assertTrue(
                         np.array_equal(point_data[key], vtu_meshes[i].point_data[key])
                     )
-        # File is now closed, safe to remove
+
         os.remove(f"{self.filename}.h5")
         os.remove(f"{self.filename}.xdmf")
 
@@ -160,18 +158,15 @@ class TestVtuToXdmf(unittest.TestCase):
 
         vtu_to_xdmf(self.filename, self.files_3d, remove_vtus=False)
 
-        # Check that both archive files exist
         self.assertTrue(os.path.exists(f"{self.filename}.h5"))
         self.assertTrue(os.path.exists(f"{self.filename}.xdmf"))
 
-        # Check the mesh structure
         vtu_meshes = [meshio.read(f) for f in self.files_3d]
         with meshio.xdmf.TimeSeriesReader(f"{self.filename}.xdmf") as reader:
             points, cells = reader.read_points_cells()
             self.assertEqual(len(points), len(vtu_meshes[0].points))
             self.assertEqual(reader.num_steps, len(vtu_meshes))
 
-            # Compare xdmf and vtu data
             for i in range(reader.num_steps):
                 time, point_data, cell_data = reader.read_data(i)
                 self.assertEqual(point_data.keys(), vtu_meshes[i].point_data.keys())
@@ -180,10 +175,8 @@ class TestVtuToXdmf(unittest.TestCase):
                         np.array_equal(point_data[key], vtu_meshes[i].point_data[key])
                     )
 
-        # Now the files are closed, so safe to remove
         os.remove(f"{self.filename}.h5")
         os.remove(f"{self.filename}.xdmf")
-
 
 
     def test_remove_vtus(self):
