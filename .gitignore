@@ -17,3 +17,5 @@ meshes/
 predictions/
 wandb/
 checkpoints/
+
+dataset/
