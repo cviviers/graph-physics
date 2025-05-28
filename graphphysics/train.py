@@ -1,5 +1,6 @@
 import json
 import os
+os.environ["PYVISTA_OFF_SCREEN"] = "true"
 import warnings
 
 import torch
@@ -86,7 +87,6 @@ def main(argv):
         param=parameters,
         device=device,
         use_edge_feature=use_edge_feature,
-        extra_node_features=build_features,
     )
 
     # Get training and validation datasets
