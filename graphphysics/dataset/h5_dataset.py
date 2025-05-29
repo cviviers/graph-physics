@@ -51,7 +51,7 @@ class H5Dataset(BaseDataset):
     @property
     def size_dataset(self) -> int:
         """Returns the number of trajectories in the dataset."""
-        return self._size_dataset
+        return self._size_dataset-1
 
     def __getitem__(self, index: int) -> Union[Data, Tuple[Data, torch.Tensor]]:
         """Retrieve a graph representation of a frame from a trajectory.
