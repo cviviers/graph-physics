@@ -1,7 +1,7 @@
 {
     "dataset": {
         "extension": "h5",
-        "h5_path": "/data/dataset/h5_dataset/deforming_plate/train.h5",
+        "h5_path": "/data/graphphysics/dataset/h5_dataset/deforming_plate/train.h5",
         "meta_path": "dataset_config/plate_meta.json",
         "khop": 2,
         "new_edges_ratio": 0
