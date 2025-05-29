@@ -51,7 +51,7 @@ class H5Dataset(BaseDataset):
     @property
     def size_dataset(self) -> int:
         """Returns the number of trajectories in the dataset."""
-        return self._size_dataset-1
+        return self._size_dataset
 
     def __getitem__(self, index: int) -> Union[Data, Tuple[Data, torch.Tensor]]:
         """Retrieve a graph representation of a frame from a trajectory.
@@ -68,6 +68,13 @@ class H5Dataset(BaseDataset):
             Union[Data, Tuple[Data, torch.Tensor]]: A graph representation of the specified frame in the trajectory,
             optionally along with selected indices if masking is applied.
         """
+
+        # temporary hack to prevent index out of bounds
+        if index+1 >= self.size_dataset:
+            index = self.size_dataset - 1
+            # print warning
+            print(f"Warning: Index {index} is out of bounds, using last index instead.")
+        
         traj_index, frame = self.get_traj_frame(index=index)
         traj_number = self.datasets_index[traj_index]
 
