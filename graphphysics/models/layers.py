@@ -331,9 +331,9 @@ class Normalizer(nn.Module):
             if self._num_accumulations < self._max_accumulations:
                 self._accumulate(batched_data.detach())
                 
-        print(self._mean().shape)
-        print(self._std_with_epsilon().shape)
-        print(batched_data.shape)
+        # print(self._mean().shape)
+        # print(self._std_with_epsilon().shape)
+        # print(batched_data.shape)
         return (batched_data - self._mean()) / self._std_with_epsilon()
 
     def inverse(self, normalized_batch_data: torch.Tensor) -> torch.Tensor:

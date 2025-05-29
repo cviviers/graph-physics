@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM nvcr.io/nvidia/pytorch:24.12-py3
+FROM nvcr.io/nvidia/dgl:24.07-py3
 
 # Use bash so we can compute versions
 SHELL ["/bin/bash", "-lc"]
@@ -9,9 +9,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
        xvfb \
        && rm -rf /var/lib/apt/lists/*
-
-# Use bash so we can compute versions
-SHELL ["/bin/bash", "-lc"]
 
 # Compute TORCH and CUDA variables, install PyG, DGL, and the rest
 RUN TORCH_VER=$(python3 -c 'import torch; print(torch.__version__.split("+")[0])') && \
@@ -23,8 +20,6 @@ RUN TORCH_VER=$(python3 -c 'import torch; print(torch.__version__.split("+")[0])
       torch-cluster     -f https://pytorch-geometric.com/whl/torch-${TORCH_VER}+${CUDA_VER}.html \
       torch-spline-conv -f https://pytorch-geometric.com/whl/torch-${TORCH_VER}+${CUDA_VER}.html \
       torch-geometric && \
-    pip install --no-cache-dir \
-      dgl -f https://data.dgl.ai/wheels/torch-${TORCH_VER}/${CUDA_VER}/repo.html && \
     pip install --no-cache-dir \
       loguru==0.7.2 \
       autoflake==2.3.0 \
@@ -38,10 +33,17 @@ RUN TORCH_VER=$(python3 -c 'import torch; print(torch.__version__.split("+")[0])
       pytorch-lightning==2.5.0 \
       torchmetrics==1.6.3 \
       wandb[media]
-
-RUN apt-get install -y ibosmesa6 libosmesa6-dev libegl1-mesa libegl1-mesa-dev libxt-dev mesa-utils
+# use --no-install-recommends to keep the image lean
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      libosmesa6 libosmesa6-dev \
+      libegl1-mesa-dev libegl-mesa0 libglx-mesa0 \
+      libxt-dev mesa-utils \
+ && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+  && apt-get install -y libxrender1 
 # Make a working dir
-WORKDIR /workspace
+WORKDIR /app
 
 # Xvfb env for notebooks
 # ENV DISPLAY=:99
