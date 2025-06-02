@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Dict, List, Optional, Union
 
 import meshio
@@ -6,6 +7,8 @@ import torch
 import torch_geometric.transforms as T
 from meshio import Mesh
 from torch_geometric.data import Data
+
+from graphphysics.dataset.preprocessing import add_world_pos_features
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -55,6 +58,8 @@ def compute_k_hop_graph(
     num_hops: int,
     add_edge_features_to_khop: bool = False,
     device: str = "cpu",
+    world_pos_index_start: int = 0,
+    world_pos_index_end: int = 3,
 ) -> Data:
     """Builds a k-hop mesh graph.
 
@@ -89,12 +94,19 @@ def compute_k_hop_graph(
 
     # Optionally compute edge features
     if add_edge_features_to_khop:
-        edge_feature_computer = T.Compose(
-            [
-                T.Cartesian(norm=False),
-                T.Distance(norm=False),
-            ]
-        )
+        transforms = [
+            T.Cartesian(norm=False),
+            T.Distance(norm=False),
+        ]
+        if world_pos_index_start is not None and world_pos_index_end is not None:
+            transforms.append(
+                partial(
+                    add_world_pos_features,
+                    world_pos_index_start=world_pos_index_start,
+                    world_pos_index_end=world_pos_index_end,
+                )
+            )
+        edge_feature_computer = T.Compose(transforms)
         khop_mesh_graph = edge_feature_computer(khop_mesh_graph).to(device)
 
     return khop_mesh_graph
@@ -156,7 +168,7 @@ def meshdata_to_graph(
     # Get tetrahedras and triangles from cells
     tetra = None
     cells = cells.T
-    cells = torch.tensor(cells, dtype=torch.long)
+    cells = torch.tensor(cells)
     if cells.shape[0] == 4:
         tetra = cells
         face = torch.cat(

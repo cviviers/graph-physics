@@ -23,6 +23,7 @@ class H5Dataset(BaseDataset):
         add_edge_features: bool = True,
         use_previous_data: bool = False,
         switch_to_val: bool = False,
+        world_pos_parameters: Optional[dict] = None,
     ):
         super().__init__(
             meta_path=meta_path,
@@ -32,6 +33,7 @@ class H5Dataset(BaseDataset):
             new_edges_ratio=new_edges_ratio,
             add_edge_features=add_edge_features,
             use_previous_data=use_previous_data,
+            world_pos_parameters=world_pos_parameters,
         )
 
         if switch_to_val:

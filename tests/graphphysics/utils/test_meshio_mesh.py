@@ -152,7 +152,6 @@ class TestVtuToXdmf(unittest.TestCase):
         os.remove(f"{self.filename}.h5")
         os.remove(f"{self.filename}.xdmf")
 
-
     def test_3d_vtus(self):
         """Test 3D vtus compression"""
 
@@ -177,7 +176,6 @@ class TestVtuToXdmf(unittest.TestCase):
 
         os.remove(f"{self.filename}.h5")
         os.remove(f"{self.filename}.xdmf")
-
 
     def test_remove_vtus(self):
         """Test the VTUs removal after compression."""

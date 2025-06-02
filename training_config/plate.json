@@ -19,7 +19,7 @@
         "feature_index_end": 6,
         "output_index_start": 0,
         "output_index_end": 3,
-        "node_type_index": 7
+        "node_type_index": 6
     },
     "transformations": {
         "preprocessing": {

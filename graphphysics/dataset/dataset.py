@@ -25,6 +25,7 @@ class BaseDataset(Dataset, ABC):
         new_edges_ratio: float = 0,
         add_edge_features: bool = True,
         use_previous_data: bool = False,
+        world_pos_parameters: Optional[dict] = None,
     ):
         with open(meta_path, "r") as fp:
             meta = json.load(fp)
@@ -47,8 +48,15 @@ class BaseDataset(Dataset, ABC):
         self.khop = khop
         self.new_edges_ratio = new_edges_ratio
         self.add_edge_features = add_edge_features
-
         self.use_previous_data = use_previous_data
+
+        self.world_pos_index_start = None
+        self.world_pos_index_end = None
+        if world_pos_parameters is not None:
+            self.world_pos_index_start = world_pos_parameters.get(
+                "world_pos_index_start"
+            )
+            self.world_pos_index_end = world_pos_parameters.get("world_pos_index_end")
 
     @property
     @abstractmethod
@@ -153,6 +161,8 @@ class BaseDataset(Dataset, ABC):
                         num_hops=self.khop,
                         add_edge_features_to_khop=True,
                         device=self.device,
+                        world_pos_index_start=self.world_pos_index_start,
+                        world_pos_index_end=self.world_pos_index_end,
                     )
                     self.khop_edge_index_cache[traj_index] = graph.edge_index.cpu()
                     self.khop_edge_attr_cache[traj_index] = graph.edge_attr.cpu()
