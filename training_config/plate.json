@@ -10,7 +10,7 @@
         "type": "epd",
         "message_passing_num": 15,
         "node_input_size": 6,
-        "edge_input_size": 4,
+        "edge_input_size": 8,
         "output_size": 3,
         "hidden_size": 128
     },

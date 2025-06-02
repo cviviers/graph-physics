@@ -392,6 +392,7 @@ def build_preprocessing(
         preprocessing.extend(extra_node_features)
 
     if world_pos_parameters is not None:
+        print("Adding world position features to the graph.")
         preprocessing.extend(
             [
                 partial(
