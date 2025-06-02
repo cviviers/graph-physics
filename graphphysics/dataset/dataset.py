@@ -47,7 +47,9 @@ class BaseDataset(Dataset, ABC):
         self.khop = khop
         self.new_edges_ratio = new_edges_ratio
         self.add_edge_features = add_edge_features
-
+        if hasattr(self, "meta"):
+            self.world_pos_index_start = self.meta.get("world_pos_index_start", 0)
+            self.world_pos_index_end = self.meta.get("world_pos_index_end", 3)
         self.use_previous_data = use_previous_data
 
     @property
@@ -153,6 +155,8 @@ class BaseDataset(Dataset, ABC):
                         num_hops=self.khop,
                         add_edge_features_to_khop=True,
                         device=self.device,
+                        world_pos_index_start=self.world_pos_index_start,
+                        world_pos_index_end=self.world_pos_index_end,
                     )
                     self.khop_edge_index_cache[traj_index] = graph.edge_index.cpu()
                     self.khop_edge_attr_cache[traj_index] = graph.edge_attr.cpu()
