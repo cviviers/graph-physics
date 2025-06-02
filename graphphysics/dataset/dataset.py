@@ -25,6 +25,7 @@ class BaseDataset(Dataset, ABC):
         new_edges_ratio: float = 0,
         add_edge_features: bool = True,
         use_previous_data: bool = False,
+        world_pos_parameters: Optional[dict] = None,
     ):
         with open(meta_path, "r") as fp:
             meta = json.load(fp)
@@ -47,10 +48,15 @@ class BaseDataset(Dataset, ABC):
         self.khop = khop
         self.new_edges_ratio = new_edges_ratio
         self.add_edge_features = add_edge_features
-        if hasattr(self, "meta"):
-            self.world_pos_index_start = self.meta.get("world_pos_index_start", 0)
-            self.world_pos_index_end = self.meta.get("world_pos_index_end", 3)
         self.use_previous_data = use_previous_data
+
+        self.world_pos_index_start = None
+        self.world_pos_index_end = None
+        if world_pos_parameters is not None:
+            self.world_pos_index_start = world_pos_parameters.get(
+                "world_pos_index_start"
+            )
+            self.world_pos_index_end = world_pos_parameters.get("world_pos_index_end")
 
     @property
     @abstractmethod
