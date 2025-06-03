@@ -22,6 +22,30 @@ def test_meshdata_to_graph():
     assert graph.pos.shape[0] == 1923
 
 
+def test_meshdata_to_graph_3d():
+    points = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=np.float32,
+    )
+
+    cells = np.array([[0, 1, 2, 3]], dtype=np.int32)
+
+    point_data = {"dummy_feature": np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)}
+
+    graph = meshdata_to_graph(
+        points=points,
+        cells=cells,
+        point_data=point_data,
+    )
+
+    assert graph.x.shape[0] == 4
+
+
 def test_mesh_to_graph():
     mesh = get_meshs_from_vtu()[0]
     graph = mesh_to_graph(mesh=mesh)

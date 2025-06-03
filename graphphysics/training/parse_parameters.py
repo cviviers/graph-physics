@@ -169,6 +169,14 @@ def get_dataset(
     new_edges_ratio = dataset_params.get("new_edges_ratio", 0)
     extension = dataset_params.get("extension", "")
 
+    world_pos_parameters = None
+    if khop > 1:
+        transformations = param.get("transformations", {})
+        if "world_pos_parameters" in transformations:
+            wpp = transformations["world_pos_parameters"]
+            if wpp.get("use", False):
+                world_pos_parameters = wpp
+
     if extension == "h5":
         return H5Dataset(
             h5_path=dataset_params["h5_path"],
@@ -180,6 +188,7 @@ def get_dataset(
             add_edge_features=use_edge_feature,
             use_previous_data=use_previous_data,
             switch_to_val=switch_to_val,
+            world_pos_parameters=world_pos_parameters,
         )
     elif extension == "xdmf":
         return XDMFDataset(
