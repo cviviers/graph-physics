@@ -37,7 +37,7 @@ flags.DEFINE_integer("warmup", 1000, "Learning rate warmup steps")
 flags.DEFINE_integer("num_workers", 2, "Number of DataLoader workers")
 flags.DEFINE_integer("prefetch_factor", 2, "Number of batches to prefetch")
 flags.DEFINE_string("model_save_path", None, "Path to the checkpoint (.ckpt) file")
-flags.DEFINE_bool("use_previous_data", True, "Whether to use previous data or not")
+flags.DEFINE_bool("use_previous_data", False, "Whether to use previous data or not")
 flags.DEFINE_integer(
     "previous_data_start", 4, "Index of the start of the previous data in the features"
 )
@@ -48,6 +48,7 @@ flags.DEFINE_bool("no_edge_feature", False, "Whether to use edge features")
 flags.DEFINE_string(
     "training_parameters_path", None, "Path to the training parameters JSON file"
 )
+flags.DEFINE_string("output_dir", "checkpoints/", "Directory to save checkpoints")
 
 
 def main(argv):
@@ -81,6 +82,7 @@ def main(argv):
     use_previous_data = FLAGS.use_previous_data
     previous_data_start = FLAGS.previous_data_start
     previous_data_end = FLAGS.previous_data_end
+    output_dir = FLAGS.output_dir
 
     # Build preprocessing function
     preprocessing = get_preprocessing(
@@ -177,7 +179,7 @@ def main(argv):
     # Initialize WandbLogger
     wandb_run = wandb.init(project=wandb_project_name)
     wandb_logger = WandbLogger(experiment=wandb_run)
-    checkpoint_callback = ModelCheckpoint(dirpath="checkpoints/")
+    checkpoint_callback = ModelCheckpoint(dirpath=output_dir, filename="model-{epoch:02d}-{val_loss_epoch:.2f}", monitor="val_loss_epoch", save_top_k=1, mode="min")
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
     wandb_logger.experiment.config.update(
