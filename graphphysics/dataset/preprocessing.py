@@ -120,9 +120,15 @@ def add_world_edges(
 
     type = graph.x[:, node_type_index]
 
-    m1 = torch.gather(type, -1, added_edges[0]) == NodeType.NORMAL
+    m1 = torch.gather(type, -1, added_edges[0]) == NodeType.OBSTACLE
     m2 = torch.gather(type, -1, added_edges[1]) == NodeType.NORMAL
-    mask = torch.logical_and(m1, m2)
+    mask1 = torch.logical_and(m1, m2)
+
+    m1 = torch.gather(type, -1, added_edges[0]) == NodeType.NORMAL
+    m2 = torch.gather(type, -1, added_edges[1]) == NodeType.OBSTACLE
+    mask2 = torch.logical_and(m1, m2)
+
+    mask = torch.logical_or(mask1, mask2)
 
     added_edges = added_edges[:, mask]
 
