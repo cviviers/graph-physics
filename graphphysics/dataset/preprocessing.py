@@ -80,8 +80,9 @@ def add_obstacles_next_pos(
     node_type = graph.x[:, node_type_index - 3]
 
     # Create mask for nodes that are not obstacles
-    mask = node_type != NodeType.OBSTACLE
-    obstacle_displacement[mask] = 0
+    only_obstacle_displacement = obstacle_displacement[node_type == NodeType.OBSTACLE]
+    mean_obstacle_displacement = torch.mean(only_obstacle_displacement, dim=0)
+    obstacle_displacement[node_type != NodeType.OBSTACLE] = mean_obstacle_displacement
 
     # Update node features
     graph.x = torch.cat([world_pos, obstacle_displacement, other_features], dim=1)
