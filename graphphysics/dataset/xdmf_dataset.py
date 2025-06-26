@@ -5,6 +5,7 @@ from typing import Callable, List, Optional, Tuple, Union
 import meshio
 import numpy as np
 import torch
+from loguru import logger
 from torch_geometric.data import Data
 
 from graphphysics.dataset.dataset import BaseDataset
@@ -37,6 +38,11 @@ class XDMFDataset(BaseDataset):
         )
 
         self.dt = self.meta["dt"]
+        if self.dt == 0:
+            self.dt = 1
+            logger.warning(
+                "The dataset has a timestep set to 0. Fallback to dt=1 to ensure xdmf can be saved."
+            )
         self.random_next = random_next
         self.random_prev = random_prev
 
