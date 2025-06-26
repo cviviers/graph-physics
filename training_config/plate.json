@@ -23,7 +23,7 @@
     },
     "transformations": {
         "preprocessing": {
-            "noise": 0.003,
+            "noise": 0.00003,
             "noise_index_start": [0],
             "noise_index_end": [6],
             "masking": 0
