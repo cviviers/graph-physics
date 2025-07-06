@@ -1,11 +1,10 @@
 import json
 import os
-os.environ["PYVISTA_OFF_SCREEN"] = "true"
 import warnings
 
 import torch
 from absl import app, flags
-from lightning.pytorch import Trainer
+from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 from loguru import logger
@@ -27,17 +26,28 @@ warnings.filterwarnings(
 )
 
 torch.set_float32_matmul_precision("high")
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("project_name", "my_project", "Name of the WandB project")
 flags.DEFINE_integer("num_epochs", 10, "Number of epochs")
+flags.DEFINE_integer("seed", 42, "Random seed")
 flags.DEFINE_float("init_lr", 0.001, "Initial learning rate")
 flags.DEFINE_integer("batch_size", 2, "Batch size")
 flags.DEFINE_integer("warmup", 1000, "Learning rate warmup steps")
 flags.DEFINE_integer("num_workers", 2, "Number of DataLoader workers")
 flags.DEFINE_integer("prefetch_factor", 2, "Number of batches to prefetch")
-flags.DEFINE_string("model_save_path", None, "Path to the checkpoint (.ckpt) file")
-flags.DEFINE_bool("use_previous_data", False, "Whether to use previous data or not")
+flags.DEFINE_string(
+    "model_save_name", None, "Name to save the checkpoint during training"
+)
+flags.DEFINE_string(
+    "model_path", None, "Path to the checkpoint (.ckpt) to resume training from"
+)
+flags.DEFINE_bool(
+    "resume_training", False, "Whether to resume an unfinished training or not"
+)
+
+flags.DEFINE_bool("use_previous_data", True, "Whether to use previous data or not")
 flags.DEFINE_integer(
     "previous_data_start", 4, "Index of the start of the previous data in the features"
 )
@@ -48,7 +58,6 @@ flags.DEFINE_bool("no_edge_feature", False, "Whether to use edge features")
 flags.DEFINE_string(
     "training_parameters_path", None, "Path to the training parameters JSON file"
 )
-flags.DEFINE_string("output_dir", "checkpoints/", "Directory to save checkpoints")
 
 
 def main(argv):
@@ -77,31 +86,43 @@ def main(argv):
     warmup = FLAGS.warmup
     num_workers = FLAGS.num_workers
     prefetch_factor = FLAGS.prefetch_factor
-    model_save_path = FLAGS.model_save_path
+    model_save_name = FLAGS.model_save_name
+    model_path = FLAGS.model_path
+    resume_training = FLAGS.resume_training
     use_edge_feature = not FLAGS.no_edge_feature
     use_previous_data = FLAGS.use_previous_data
     previous_data_start = FLAGS.previous_data_start
     previous_data_end = FLAGS.previous_data_end
-    output_dir = FLAGS.output_dir
+
+    seed_everything(FLAGS.seed, workers=True)
 
     # Build preprocessing function
-    preprocessing = get_preprocessing(
+    train_preprocessing = get_preprocessing(
         param=parameters,
         device=device,
         use_edge_feature=use_edge_feature,
+        extra_node_features=build_features,
     )
 
     # Get training and validation datasets
     train_dataset = get_dataset(
         param=parameters,
-        preprocessing=preprocessing,
+        preprocessing=train_preprocessing,
         use_edge_feature=use_edge_feature,
         use_previous_data=use_previous_data,
     )
 
+    val_preprocessing = get_preprocessing(
+        param=parameters,
+        device=device,
+        use_edge_feature=use_edge_feature,
+        remove_noise=True,
+        extra_node_features=build_features,
+    )
+
     val_dataset = get_dataset(
         param=parameters,
-        preprocessing=preprocessing,
+        preprocessing=val_preprocessing,
         use_edge_feature=use_edge_feature,
         use_previous_data=use_previous_data,
         switch_to_val=True,
@@ -154,17 +175,19 @@ def main(argv):
             "previous_data_end": previous_data_end,
         }
 
-    if model_save_path and os.path.isfile(model_save_path):
-        logger.info(f"Loading model from checkpoint: {model_save_path}")
+    if model_path and os.path.isfile(model_path):
+        logger.info(f"Loading model from checkpoint: {model_path}")
         lightning_module = LightningModule.load_from_checkpoint(
-            checkpoint_path=model_save_path,
+            checkpoint_path=model_path,
             parameters=parameters,
             warmup=warmup,
             learning_rate=initial_lr,
             num_steps=num_steps,
             trajectory_length=train_dataset.trajectory_length,
+            timestep=train_dataset.dt,
             **prev_data_kwargs,
         )
+        logger.info(f"Resuming WandB run: {lightning_module.wandb_run_id}")
     else:
         logger.info("Initializing new model")
         lightning_module = LightningModule(
@@ -173,13 +196,26 @@ def main(argv):
             num_steps=num_steps,
             warmup=warmup,
             trajectory_length=train_dataset.trajectory_length,
+            timestep=train_dataset.dt,
             **prev_data_kwargs,
         )
 
     # Initialize WandbLogger
-    wandb_run = wandb.init(project=wandb_project_name)
+    if resume_training:
+        wandb_run = wandb.init(
+            project=wandb_project_name, id=lightning_module.wandb_run_id, resume="allow"
+        )
+    else:
+        wandb_run = wandb.init(project=wandb_project_name)
+
     wandb_logger = WandbLogger(experiment=wandb_run)
-    checkpoint_callback = ModelCheckpoint(dirpath=output_dir, filename="model-{epoch:02d}-{val_loss_epoch:.2f}", monitor="val_loss_epoch", save_top_k=1, mode="min")
+    lightning_module.wandb_run_id = wandb_logger.experiment.id
+    if model_save_name is not None:
+        checkpoint_callback = ModelCheckpoint(
+            dirpath="checkpoints/", filename=model_save_name
+        )
+    else:
+        checkpoint_callback = ModelCheckpoint(dirpath="checkpoints")
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
     wandb_logger.experiment.config.update(
@@ -208,13 +244,22 @@ def main(argv):
         log_every_n_steps=100,
     )
 
-    # Start training
-    logger.success("Starting training")
-    trainer.fit(
-        model=lightning_module,
-        train_dataloaders=train_dataloader,
-        val_dataloaders=valid_dataloader,
-    )
+    # Resuming training from a checkpoint
+    if model_path and os.path.isfile(model_path) and resume_training:
+        logger.success("Resuming training")
+        trainer.fit(
+            model=lightning_module,
+            train_dataloaders=train_dataloader,
+            val_dataloaders=valid_dataloader,
+            ckpt_path=model_path,
+        )
+    else:
+        logger.success("Starting training")
+        trainer.fit(
+            model=lightning_module,
+            train_dataloaders=train_dataloader,
+            val_dataloaders=valid_dataloader,
+        )
 
 
 if __name__ == "__main__":

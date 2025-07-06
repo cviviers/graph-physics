@@ -80,8 +80,9 @@ def add_obstacles_next_pos(
     node_type = graph.x[:, node_type_index - 3]
 
     # Create mask for nodes that are not obstacles
-    mask = node_type != NodeType.OBSTACLE
-    obstacle_displacement[mask] = 0
+    only_obstacle_displacement = obstacle_displacement[node_type == NodeType.OBSTACLE]
+    mean_obstacle_displacement = torch.mean(only_obstacle_displacement, dim=0)
+    obstacle_displacement[node_type != NodeType.OBSTACLE] = mean_obstacle_displacement
 
     # Update node features
     graph.x = torch.cat([world_pos, obstacle_displacement, other_features], dim=1)
@@ -120,9 +121,15 @@ def add_world_edges(
 
     type = graph.x[:, node_type_index]
 
-    m1 = torch.gather(type, -1, added_edges[0]) == NodeType.NORMAL
+    m1 = torch.gather(type, -1, added_edges[0]) == NodeType.OBSTACLE
     m2 = torch.gather(type, -1, added_edges[1]) == NodeType.NORMAL
-    mask = torch.logical_and(m1, m2)
+    mask1 = torch.logical_and(m1, m2)
+
+    m1 = torch.gather(type, -1, added_edges[0]) == NodeType.NORMAL
+    m2 = torch.gather(type, -1, added_edges[1]) == NodeType.OBSTACLE
+    mask2 = torch.logical_and(m1, m2)
+
+    mask = torch.logical_or(mask1, mask2)
 
     added_edges = added_edges[:, mask]
 
@@ -392,7 +399,6 @@ def build_preprocessing(
         preprocessing.extend(extra_node_features)
 
     if world_pos_parameters is not None:
-        print("Adding world position features to the graph.")
         preprocessing.extend(
             [
                 partial(

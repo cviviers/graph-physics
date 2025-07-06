@@ -1,6 +1,7 @@
 from typing import Callable, Optional, Tuple, Union
 
 import torch
+from loguru import logger
 from torch_geometric.data import Data
 
 from graphphysics.dataset.dataset import BaseDataset
@@ -41,6 +42,13 @@ class H5Dataset(BaseDataset):
 
         self.h5_path = h5_path
         self.meta_path = meta_path
+
+        self.dt = self.meta["dt"]
+        if self.dt == 0:
+            self.dt = 1
+            logger.warning(
+                "The dataset has a timestep set to 0. Fallback to dt=1 to ensure xdmf can be saved."
+            )
 
         # Open the H5 file and load metadata
         (

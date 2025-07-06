@@ -5,6 +5,7 @@ from typing import Callable, List, Optional, Tuple, Union
 import meshio
 import numpy as np
 import torch
+from loguru import logger
 from torch_geometric.data import Data
 
 from graphphysics.dataset.dataset import BaseDataset
@@ -37,6 +38,11 @@ class XDMFDataset(BaseDataset):
         )
 
         self.dt = self.meta["dt"]
+        if self.dt == 0:
+            self.dt = 1
+            logger.warning(
+                "The dataset has a timestep set to 0. Fallback to dt=1 to ensure xdmf can be saved."
+            )
         self.random_next = random_next
         self.random_prev = random_prev
 
@@ -78,6 +84,7 @@ class XDMFDataset(BaseDataset):
         """
         traj_index, frame = self.get_traj_frame(index=index)
         xdmf_file = self.file_paths[traj_index]
+        mesh_id = os.path.splitext(os.path.basename(xdmf_file))[0].rsplit("_", 1)[-1]
 
         # Fetch index for previous_data and target
         _target_data_index = random.randint(1, self.random_next)
@@ -146,6 +153,7 @@ class XDMFDataset(BaseDataset):
             point_data=point_data,
             time=time,
             target=target_data,
+            id=mesh_id,
         )
         # TODO: add target_dt and previous_dt as features per node.
         graph.target_dt = _target_data_index * self.dt

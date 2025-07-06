@@ -18,6 +18,7 @@ warnings.filterwarnings(
 )
 
 torch.set_float32_matmul_precision("high")
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("project_name", "prediction_project", "Name of the WandB project")
@@ -56,6 +57,7 @@ def main(argv):
         param=parameters,
         device=device,
         use_edge_feature=use_edge_feature,
+        remove_noise=True,
         extra_node_features=build_features,
     )
 
@@ -84,6 +86,7 @@ def main(argv):
         checkpoint_path=model_path,
         parameters=parameters,
         trajectory_length=predict_dataset.trajectory_length,
+        timestep=predict_dataset.dt,
     )
 
     # Initialize WandbLogger

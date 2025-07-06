@@ -33,6 +33,7 @@ class LightningModule(L.LightningModule):
         num_steps: int,
         warmup: int,
         trajectory_length: int = 599,
+        timestep: float = 1.0,
         only_processor: bool = False,
         masks: list[NodeType] = [NodeType.NORMAL, NodeType.OUTFLOW],
         use_previous_data: bool = False,
@@ -59,6 +60,7 @@ class LightningModule(L.LightningModule):
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.param = parameters
+        self.wandb_run_id = None
 
         processor = get_model(param=parameters, only_processor=only_processor)
 
@@ -84,6 +86,7 @@ class LightningModule(L.LightningModule):
         self.val_step_outputs = []
         self.val_step_targets = []
         self.trajectory_length = trajectory_length
+        self.timestep = timestep
         self.current_val_trajectory = 0
         self.last_val_prediction = None
         self.last_previous_data_prediction = None
@@ -96,9 +99,9 @@ class LightningModule(L.LightningModule):
         self.trajectory_to_save: list[Batch] = []
 
         # Prediction
+        self.prediction_save_dir: str = "predictions"
         self.current_pred_trajectory = 0
         self.prediction_trajectory: list[Batch] = []
-        self.prediction_trajectories: list[list[Batch]] = []
         self.last_pred_prediction = None
         self.last_previous_data_pred_prediction = None
 
@@ -127,15 +130,16 @@ class LightningModule(L.LightningModule):
     ):
         os.makedirs(save_dir, exist_ok=True)
         archive_path = os.path.join(save_dir, archive_filename)
+        xdmf_filename = f"{archive_path}.xdmf"
+        init_mesh = convert_to_meshio_vtu(trajectory[0], add_all_data=True)
+        points = init_mesh.points
+        cells = init_mesh.cells
         try:
-            init_mesh = convert_to_meshio_vtu(trajectory[0], add_all_data=True)
-            points = init_mesh.points
-            cells = init_mesh.cells
-            with meshio.xdmf.TimeSeriesWriter(f"{archive_path}.xdmf") as writer:
+            with meshio.xdmf.TimeSeriesWriter(xdmf_filename) as writer:
                 # Write the mesh (points and cells) once
                 writer.write_points_cells(points, cells)
                 # Loop through time steps and write data
-                t = 0
+                t = timestep if not self.use_previous_data else 2 * timestep
                 for idx, graph in enumerate(trajectory):
                     mesh = convert_to_meshio_vtu(graph, add_all_data=True)
                     point_data = mesh.point_data
@@ -145,11 +149,15 @@ class LightningModule(L.LightningModule):
 
         except Exception as e:
             logger.error(f"Error saving graph {idx} at epoch {self.current_epoch}: {e}")
-        logger.info(f"Validation Trajectory saved at {save_dir}.")
+        logger.info(
+            f"Validation Trajectory {archive_filename.split('_')[-1]} saved at {save_dir}."
+        )
         # The H5 archive is systematically created in cwd, we just need to move it
         shutil.move(
-            src=os.path.join(os.getcwd(), os.path.split(f"{archive_path}.h5")[1]),
-            dst=f"{archive_path}.h5",
+            src=os.path.join(
+                os.getcwd(), os.path.split(f"{xdmf_filename.replace('xdmf','h5')}")[1]
+            ),
+            dst=f"{xdmf_filename.replace('xdmf','h5')}",
         )
 
     def _reset_validation_trajectory(self):
@@ -251,7 +259,14 @@ class LightningModule(L.LightningModule):
         # Save trajectory graphs
         save_dir = os.path.join("meshes", f"epoch_{self.current_epoch}")
         self._save_trajectory_to_xdmf(
-            self.trajectory_to_save, save_dir, f"graph_epoch_{self.current_epoch}"
+            self.trajectory_to_save,
+            save_dir,
+            self._get_traj_savename(
+                self.trajectory_to_save,
+                self.current_val_trajectory,
+                prefix=f"graph_epoch_{self.current_epoch}",
+            ),
+            timestep=self.timestep,
         )
 
         # Clear stored outputs
@@ -278,15 +293,30 @@ class LightningModule(L.LightningModule):
 
     def _reset_prediction_trajectory(self):
         self.current_pred_trajectory += 1
-        self.prediction_trajectories.append(self.prediction_trajectory)
         self.prediction_trajectory = []
         self.last_pred_prediction = None
         self.last_previous_data_pred_prediction = None
 
     def predict_step(self, batch: Batch):
-        # Save precedent trajectory and reset the current one
+        """
+        Predict step: predict next step of the trajectory.
+        If the next step is in the next trajectory, save the current trajectory
+        to xdmf and reset the trajectory.
+        """
         if batch.traj_index > self.current_pred_trajectory:
+            # save
+            self._save_trajectory_to_xdmf(
+                self.prediction_trajectory,
+                self.prediction_save_dir,
+                self._get_traj_savename(
+                    self.prediction_trajectory, self.current_pred_trajectory
+                ),
+                timestep=self.timestep,
+            )
+            # reset
             self._reset_prediction_trajectory()
+
+        # predict
         (
             batch,
             predicted_outputs,
@@ -300,22 +330,54 @@ class LightningModule(L.LightningModule):
 
     def _reset_predict_epoch_end(self):
         self.prediction_trajectory.clear()
-        self.prediction_trajectories.clear()
         self.last_pred_prediction = None
         self.last_previous_data_pred_prediction = None
         self.current_pred_trajectory = 0
 
     def on_predict_epoch_end(self):
         """
-        Converts all the predictions as .xdmf files.
+        Save last trajectory to xdmf and clear stored outputs.
         """
-        # Add the last prediction trajectory
-        self.prediction_trajectories.append(self.prediction_trajectory)
-
-        save_dir = "predictions"
-        os.makedirs(save_dir, exist_ok=True)
-        for traj_idx, trajectory in enumerate(self.prediction_trajectories):
-            self._save_trajectory_to_xdmf(trajectory, save_dir, f"graph_{traj_idx}")
+        self._save_trajectory_to_xdmf(
+            self.prediction_trajectory,
+            self.prediction_save_dir,
+            self._get_traj_savename(
+                self.prediction_trajectory, self.current_pred_trajectory
+            ),
+            timestep=self.timestep,
+        )
 
         # Clear stored outputs
         self._reset_predict_epoch_end()
+
+    def on_save_checkpoint(self, checkpoint: dict):
+        """
+        Save the wandb run ID to the checkpoint.
+        """
+        if self.wandb_run_id is not None:
+            checkpoint["wandb_run_id"] = self.wandb_run_id
+        else:
+            logger.warning("No wandb run ID found, skipping saving to checkpoint.")
+
+    def on_load_checkpoint(self, checkpoint):
+        """
+        Load the wandb run ID from the checkpoint.
+        """
+        self.wandb_run_id = checkpoint.get("wandb_run_id", None)
+
+    def _get_traj_savename(
+        self, traj: list[Batch], traj_idx: int, prefix: str = "graph"
+    ) -> str:
+        """
+        Get the name of the trajectory to save (id if provided in attributes, index otherwise).
+        Args:
+            traj (list[Batch]): List of Batch objects representing the trajectory.
+            traj_idx (int): Index of the current trajectory.
+            prefix (str): Prefix for the trajectory filename. (does not include trailing '_')
+        Returns:
+            str: The name of the trajectory to save (no extensions).
+        """
+        if hasattr(traj[0], "id") and traj[0].id[0] is not None:
+            return f"{prefix}_{traj[0].id[0]}"
+        else:
+            return f"{prefix}_{traj_idx}"

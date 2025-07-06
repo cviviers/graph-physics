@@ -618,15 +618,12 @@ class Transformer(nn.Module):
             adj = None
 
         if return_attention:
-            x_, attn = self.attention(x, adj, return_attention)
+            x_, attn = self.attention(self.norm1(x), adj, return_attention)
             x = x + x_
         else:
-            x = x + self.attention(x, adj, return_attention)
+            x = x + self.attention(self.norm1(x), adj, return_attention)
 
-        x = self.norm1(x)
-
-        x = x + self.gated_mlp(x)
-        x = self.norm2(x)
+        x = x + self.gated_mlp(self.norm2(x))
 
         if return_attention:
             return x, attn
