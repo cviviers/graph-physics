@@ -36,15 +36,24 @@
           3
         ],
         "dtype": "float32"
+      },
+      "stress": {
+      "type": "dynamic",
+      "shape": [
+        400,
+        -1,
+        1
+      ],
+      "dtype": "float32"
       }
-      
     },
-    "target_features": ["world_pos"],
+    "target_features": ["world_pos", "stress"],
     "field_names": [
       "cells",
       "node_type",
       "mesh_pos",
-      "world_pos"
+      "world_pos",
+      "stress"
     ],
     "trajectory_length": 399
   }

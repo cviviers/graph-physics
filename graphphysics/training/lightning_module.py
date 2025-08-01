@@ -111,7 +111,7 @@ class LightningModule(L.LightningModule):
     def training_step(self, batch: Batch):
         node_type = batch.x[:, self.model.node_type_index]
         network_output, target_delta_normalized, _ = self.model(batch)
-
+        # print(f"network_output: {network_output.shape},     target: {target_delta_normalized.shape}")
         loss = self.loss(
             target_delta_normalized,
             network_output,

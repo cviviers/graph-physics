@@ -201,6 +201,12 @@ class Simulator(nn.Module):
         Returns:
             torch.Tensor: The previous target values extracted from node features.
         """
+        # print(f"Extracting pre-target from inputs with shape: {inputs.x.shape}")
+        # print(f"Output index start: {self.output_index_start}, end: {self.output_index_end}")
+        # print(inputs.x[:, self.output_index_start : self.output_index_end].shape)
+        # # print a sample
+        # print(f"Sample pre-target: {inputs.x[0, self.output_index_start : self.output_index_end]}")
+        # print(inputs.x[0])
         return inputs.x[:, self.output_index_start : self.output_index_end]
 
     def _get_target_normalized(
@@ -269,6 +275,7 @@ class Simulator(nn.Module):
         Returns:
             Tuple[Data, torch.Tensor]: A tuple containing the processed input graph and normalized target delta.
         """
+        
         target_delta_normalized = self._get_target_normalized(inputs, is_training)
         one_hot_type = self._get_one_hot_type(inputs)
         node_features = self._build_node_features(inputs, one_hot_type)

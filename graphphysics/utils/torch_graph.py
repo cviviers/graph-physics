@@ -151,7 +151,7 @@ def meshdata_to_graph(
             node_features = torch.tensor(node_features, dtype=torch.float32)
     else:
         node_features = torch.zeros((len(points), 1), dtype=torch.float32)
-
+    # print(f"Node features shape: {node_features.shape}")
     if return_only_node_features:
         return node_features
 
@@ -166,7 +166,7 @@ def meshdata_to_graph(
             target_features = torch.tensor(target_features, dtype=torch.float32)
     else:
         target_features = None
-
+    print(f"Target shape: {target_features.shape if target is not None else 'None'}")
     # Get tetrahedras and triangles from cells
     tetra = None
     cells = cells.T
@@ -222,7 +222,6 @@ def mesh_to_graph(
     cells = np.vstack(
         [v for k, v in mesh.cells_dict.items() if k in ["triangle", "quad"]]
     )
-
     return meshdata_to_graph(
         points=mesh.points,
         cells=cells,

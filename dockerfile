@@ -50,3 +50,5 @@ WORKDIR /app
 
 # Convenient entrypoint: start Xvfb in background
 # ENTRYPOINT Xvfb :99 -screen 0 1024x768x24 & exec "$@"
+
+# docker run --gpus all -v "C:\Users\20195435\Documents\TUe\Tasti\graph-physics":/app -it sha256:7f16bc9d45d5f2fcc43915218be42e659ad530f4a5ddbfe4675b252ef5120850 bash

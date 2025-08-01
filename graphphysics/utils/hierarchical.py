@@ -111,7 +111,7 @@ def get_frame_as_mesh(
     point_data = {
         key: traj[key][frame]
         for key in traj.keys()
-        if key not in ["mesh_pos", "cells", "node_type"]
+        if key not in ["mesh_pos", "cells", "node_type", "stress"]
     }
     point_data["node_type"] = traj["node_type"][0]
 
@@ -119,6 +119,10 @@ def get_frame_as_mesh(
         traj["mesh_pos"][frame] if traj["mesh_pos"].ndim > 1 else traj["mesh_pos"]
     )
     cells = traj["cells"][frame] if traj["cells"].ndim > 1 else traj["cells"]
+
+    # print the shapes of the data
+    # print(f"mesh_pos shape: {mesh_pos.shape}, cells shape: {cells.shape}")
+    # print(f"point_data keys: {list(point_data.keys())}, target_point_data keys: {list(target_point_data.keys()) if target_point_data else []}")
 
     return mesh_pos, cells, point_data, target_point_data
 
@@ -148,6 +152,8 @@ def get_frame_as_graph(
     points, cells, point_data, target = get_frame_as_mesh(
         traj, frame, meta, frame_target
     )
+    
+
     time = frame * meta.get("dt", 1)
     return meshdata_to_graph(
         points=points, cells=cells, point_data=point_data, time=time, target=target
