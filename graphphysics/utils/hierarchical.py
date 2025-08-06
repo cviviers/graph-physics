@@ -111,9 +111,13 @@ def get_frame_as_mesh(
     point_data = {
         key: traj[key][frame]
         for key in traj.keys()
-        if key not in ["mesh_pos", "cells", "node_type", "stress"]
+        if key not in ["mesh_pos", "cells", "node_type"] # initially thought to exclude stress here, but is needed
     }
     point_data["node_type"] = traj["node_type"][0]
+    
+
+    # print(f"Keys in traj: {list(traj.keys())}")
+    # print(f"{point_data['stress'][0].shape=}, {point_data['stress'][0]=}, {point_data['world_pos'][0].shape=}, {point_data['world_pos'][0]=}")
 
     mesh_pos = (
         traj["mesh_pos"][frame] if traj["mesh_pos"].ndim > 1 else traj["mesh_pos"]

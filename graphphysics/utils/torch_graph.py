@@ -135,6 +135,9 @@ def meshdata_to_graph(
     Returns:
         Data: A PyTorch Geometric Data object representing the mesh.
     """
+    # for data in point_data.values():
+    #     print(f"Data shape: {data.shape}, dtype: {data.dtype}")
+
     # Combine all point data into a single array
     if point_data is not None:
         if any(data.ndim > 1 for data in point_data.values()):
@@ -151,7 +154,9 @@ def meshdata_to_graph(
             node_features = torch.tensor(node_features, dtype=torch.float32)
     else:
         node_features = torch.zeros((len(points), 1), dtype=torch.float32)
+
     # print(f"Node features shape: {node_features.shape}")
+    # print(f"First node feature: {node_features[0]}")
     if return_only_node_features:
         return node_features
 
@@ -166,7 +171,8 @@ def meshdata_to_graph(
             target_features = torch.tensor(target_features, dtype=torch.float32)
     else:
         target_features = None
-    print(f"Target shape: {target_features.shape if target is not None else 'None'}")
+    # print(f"Target shape: {target_features.shape if target is not None else 'None'}")
+    # print(f"First target feature: {target_features[0] if target_features is not None else 'None'}")
     # Get tetrahedras and triangles from cells
     tetra = None
     cells = cells.T

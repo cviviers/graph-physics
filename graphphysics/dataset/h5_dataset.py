@@ -25,6 +25,7 @@ class H5Dataset(BaseDataset):
         use_previous_data: bool = False,
         switch_to_val: bool = False,
         world_pos_parameters: Optional[dict] = None,
+        use_subset: int = 5,
     ):
         super().__init__(
             meta_path=meta_path,
@@ -42,6 +43,7 @@ class H5Dataset(BaseDataset):
 
         self.h5_path = h5_path
         self.meta_path = meta_path
+        self.use_subset = use_subset
 
         self.dt = self.meta["dt"]
         if self.dt == 0:
@@ -57,6 +59,37 @@ class H5Dataset(BaseDataset):
             self._size_dataset,
             self.meta,
         ) = get_h5_dataset(dataset_path=h5_path, meta_path=meta_path)
+
+        # Optionally use a subset
+        if isinstance(self.use_subset, int) and self.use_subset > 0:
+            if self.use_subset < len(self.datasets_index):
+                self.datasets_index = self.datasets_index[: self.use_subset]
+                self._size_dataset = min(self._size_dataset, self.use_subset)
+                logger.info(f"Using subset of size {self.use_subset}.")
+            else:
+                logger.warning(
+                    f"Requested subset size ({self.use_subset}) >= available "
+                    f"({len(self.datasets_index)}). Using full dataset."
+                )
+        # print size of dataset
+        # logger.info(f"Dataset size: {self._size_dataset} frames.")
+        # print(f"Dataset size: {self._size_dataset} frames.")
+
+        # # print all the info about the first entry in the dataset
+        # if self._size_dataset > 0:
+        #     traj_number = self.datasets_index[0]
+        #     traj = get_traj_as_meshes(
+        #         file_handle=self.file_handle, traj_number=traj_number, meta=self.meta
+        #     )
+        #     # logger.info(f"First trajectory info: {traj}")
+        #     # print(f"First trajectory info: {traj}")
+        #     # print the size of the array for each key in the trajectory
+        #     for key, value in traj.items():
+                
+        #         logger.info(f"{key}: {value.shape}")
+        #         print(f"{key}: {value.shape}")
+                
+
 
     @property
     def size_dataset(self) -> int:
