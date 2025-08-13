@@ -178,7 +178,10 @@ class Simulator(nn.Module):
         self.model_dir = model_dir
         self.model = model.to(device)
         self._output_normalizer = Normalizer(
-            size=output_size, name="output_normalizer", device=device
+            size=output_size-1, name="output_normalizer", device=device
+        )
+        self._stress_normalizer = Normalizer(
+            size=output_size - 3, name="stress_normalizer", device=device
         )
         self._node_normalizer = Normalizer(
             size=node_input_size, name="node_normalizer", device=device
@@ -225,8 +228,11 @@ class Simulator(nn.Module):
         target = inputs.y
         pre_target = self._get_pre_target(inputs)
         target_delta = target - pre_target
-        target_delta_normalized = self._output_normalizer(target_delta, is_training)
-
+        # normalize the target delta separately for position and stress
+        
+        target_delta_pos_normalized  =  self._output_normalizer(target_delta[:, :3])
+        target_delta_stress_normalized = self._stress_normalizer(target_delta[:, 3:])
+        target_delta_normalized = torch.cat([target_delta_pos_normalized, target_delta_stress_normalized], dim=1)
         return target_delta_normalized
 
     def _get_one_hot_type(self, inputs: Data) -> torch.Tensor:
@@ -310,7 +316,9 @@ class Simulator(nn.Module):
             torch.Tensor: The reconstructed outputs.
         """
         pre_target = self._get_pre_target(inputs)
-        update = self._output_normalizer.inverse(network_output)
+        update_pos = self._output_normalizer.inverse(network_output[:, :3])
+        update_stress = self._stress_normalizer.inverse(network_output[:, 3:])
+        update = torch.cat([update_pos, update_stress], dim=1)
         return pre_target + update
 
     def forward(
@@ -372,7 +380,7 @@ class Simulator(nn.Module):
         checkpoint = torch.load(ckpdir, map_location=self.device)
         self.load_state_dict(checkpoint["model"])
 
-        normalizer_keys = ["_output_normalizer", "_node_normalizer", "_edge_normalizer"]
+        normalizer_keys = ["_output_normalizer", "_stress_normalizer", "_node_normalizer", "_edge_normalizer"]
         for key in normalizer_keys:
             normalizer_state = checkpoint.get(key, {})
             normalizer = getattr(self, key, None)
@@ -396,6 +404,9 @@ class Simulator(nn.Module):
 
         model_state = self.state_dict()
         output_normalizer_state = self._output_normalizer.get_variable()
+        stress_normalizer_state = (
+            self._stress_normalizer.get_variable() if self._stress_normalizer else None
+        )
         node_normalizer_state = self._node_normalizer.get_variable()
         edge_normalizer_state = (
             self._edge_normalizer.get_variable() if self._edge_normalizer else None
@@ -404,6 +415,7 @@ class Simulator(nn.Module):
         to_save = {
             "model": model_state,
             "_output_normalizer": output_normalizer_state,
+            "_stress_normalizer": stress_normalizer_state,
             "_node_normalizer": node_normalizer_state,
             "_edge_normalizer": edge_normalizer_state,
         }

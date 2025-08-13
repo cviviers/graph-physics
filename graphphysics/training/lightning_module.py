@@ -12,7 +12,7 @@ from graphphysics.utils.loss import DiagonalGaussianMixtureNLLLoss, L2Loss, Stre
 from graphphysics.utils.meshio_mesh import convert_to_meshio_vtu
 from graphphysics.utils.nodetype import NodeType
 from graphphysics.utils.scheduler import CosineWarmupScheduler
-
+import wandb
 
 def build_mask(param: dict, graph: Batch):
     if len(graph.x.shape) > 2:
@@ -61,6 +61,7 @@ class LightningModule(L.LightningModule):
 
         self.param = parameters
         self.wandb_run_id = None
+        
 
         processor = get_model(param=parameters, only_processor=only_processor)
 
@@ -112,13 +113,20 @@ class LightningModule(L.LightningModule):
         node_type = batch.x[:, self.model.node_type_index]
         network_output, target_delta_normalized, _ = self.model(batch)
         # print(f"network_output: {network_output.shape},     target: {target_delta_normalized.shape}")
-        loss = self.loss(
+        pos_loss, stress_loss = self.loss(
             target_delta_normalized,
             network_output,
             node_type,
             masks=self.loss_masks,
         )
+        loss = self.param['weight']*pos_loss + (1-self.param['weight'])*stress_loss
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        # Log losses to wandb
+        wandb.log({
+            "train_pos_loss": pos_loss.item(),
+            "train_stress_loss": stress_loss.item(),
+            "train_total_loss": loss.item(),
+        })
         return loss
 
     def _save_trajectory_to_xdmf(
@@ -224,13 +232,16 @@ class LightningModule(L.LightningModule):
         self.val_step_outputs.append(predicted_outputs.cpu())
         self.val_step_targets.append(target.cpu())
         if self.K == 0:
-            val_loss = self.loss(
+            val_loss_pos, val_loss_stress = self.loss(
                 target,
                 predicted_outputs,
                 node_type,
                 masks=self.loss_masks,
             )
-            self.log("val_loss", val_loss, on_step=True, on_epoch=True, prog_bar=True)
+            total_val_loss = self.param['weight'] * val_loss_pos + (1 - self.param['weight']) * val_loss_stress
+            self.log("val_loss", total_val_loss, on_step=True, on_epoch=True, prog_bar=True)
+            self.log("val_loss_pos", val_loss_pos, on_step=True, on_epoch=True, prog_bar=True)
+            self.log("val_loss_stress", val_loss_stress, on_step=True, on_epoch=True, prog_bar=True)
 
     def _reset_validation_epoch_end(self):
         self.val_step_outputs.clear()
@@ -246,12 +257,33 @@ class LightningModule(L.LightningModule):
         targets = torch.cat(self.val_step_targets, dim=0)
 
         # Compute RMSE over all rollouts
-        squared_diff = (predicteds - targets) ** 2
-        all_rollout_rmse = torch.sqrt(squared_diff.mean()).item()
+        squared_diff_pos = (predicteds[:, :3] - targets[:, :3]) ** 2
+        squared_diff_stress = (predicteds[:, 3:] - targets[:, 3:]) ** 2
+        # squared_diff = squared_diff_pos + squared_diff_stress
+
+        all_rollout_pos_rmse = torch.sqrt(squared_diff_pos.mean()).item()
+        all_rollout_stress_rmse = torch.sqrt(squared_diff_stress.mean()).item()
+        total_rollout_rmse = torch.sqrt(
+            (squared_diff_pos + squared_diff_stress).mean()
+        ).item()
 
         self.log(
-            "val_all_rollout_rmse",
-            all_rollout_rmse,
+            "val_all_rollout_pos_rmse",
+            all_rollout_pos_rmse,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+        )
+        self.log(
+            "val_all_rollout_stress_rmse",
+            all_rollout_stress_rmse,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+        )
+        self.log(
+            "val_total_rollout_rmse",
+            total_rollout_rmse,
             on_step=False,
             on_epoch=True,
             prog_bar=True,

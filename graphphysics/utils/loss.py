@@ -80,7 +80,6 @@ class StressL2Loss(_Loss):
         node_type: torch.Tensor,
         masks: list[NodeType],
         selected_indexes: torch.Tensor = None,
-        weight: float = 0.5,
     ) -> torch.Tensor:
         """
         Computes L2 loss for nodes of specific types.
@@ -105,12 +104,12 @@ class StressL2Loss(_Loss):
 
         pos_errors = torch.mean(((network_output[:, :3] - target[:, :3]) ** 2)[mask])
         stress_errors = torch.mean(((network_output[:, 3:] - target[:, 3:]) ** 2)[mask])
-        wandb.log({
-            "pos_errors": pos_errors.item(),
-            "stress_errors": stress_errors.item(),
-        })
-        total_errors = (1-weight) * pos_errors + weight * stress_errors
-        return total_errors
+        # wandb.log({
+        #     "pos_errors": pos_errors.item(),
+        #     "stress_errors": stress_errors.item(),
+        # })
+        # total_errors = (1-weight) * pos_errors + weight * stress_errors
+        return pos_errors, stress_errors
 
 
 class L1SmoothLoss(_Loss):
