@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch.nn.modules.loss import _Loss
-
+import wandb
 from graphphysics.utils.nodetype import NodeType
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -63,6 +63,54 @@ class L2Loss(_Loss):
         )
         errors = ((network_output - target) ** 2)[mask]
         return torch.mean(errors)
+    
+
+class StressL2Loss(_Loss):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @property
+    def __name__(self):
+        return "MSE"
+
+    def forward(
+        self,
+        target: torch.Tensor,
+        network_output: torch.Tensor,
+        node_type: torch.Tensor,
+        masks: list[NodeType],
+        selected_indexes: torch.Tensor = None,
+        weight: float = 0.5,
+    ) -> torch.Tensor:
+        """
+        Computes L2 loss for nodes of specific types.
+
+        Args:
+            target (torch.Tensor): The target values.
+            network_output (torch.Tensor): The predicted values from the network.
+            node_type (torch.Tensor): Tensor containing the type of each node.
+            masks (list[NodeType]): List of NodeTypes to include in the loss calculation.
+            selected_indexes (torch.Tensor, optional): Indexes of nodes to exclude from the loss calculation.
+
+        Returns:
+            torch.Tensor: The mean squared error for the specified node types.
+
+        Note:
+            This method calculates the L2 loss only for nodes of the types specified in 'masks'.
+            If 'selected_indexes' is provided, those nodes are excluded from the loss calculation.
+        """
+        mask = _prepare_mask_for_loss(
+            network_output, node_type, masks, selected_indexes
+        )
+
+        pos_errors = torch.mean(((network_output[:, :3] - target[:, :3]) ** 2)[mask])
+        stress_errors = torch.mean(((network_output[:, 3:] - target[:, 3:]) ** 2)[mask])
+        wandb.log({
+            "pos_errors": pos_errors.item(),
+            "stress_errors": stress_errors.item(),
+        })
+        total_errors = (1-weight) * pos_errors + weight * stress_errors
+        return total_errors
 
 
 class L1SmoothLoss(_Loss):

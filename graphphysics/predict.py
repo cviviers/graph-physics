@@ -58,7 +58,7 @@ def main(argv):
         device=device,
         use_edge_feature=use_edge_feature,
         remove_noise=True,
-        extra_node_features=build_features,
+        extra_node_features=None,
     )
 
     # Get predict datasets
@@ -68,6 +68,15 @@ def main(argv):
         use_edge_feature=use_edge_feature,
         use_previous_data=True,
     )
+
+    print(f"Predict dataset: {predict_dataset}")
+    # show the first element in the dataset
+    if len(predict_dataset) > 0:
+        first_data = predict_dataset[0]
+        print("First data in predict dataset:")
+        print(f"Node features: {first_data.x}")
+        print(f"Edge features: {first_data.edge_attr if hasattr(first_data, 'edge_attr') else 'No edge features'}")
+        print(f"Target: {first_data.y if hasattr(first_data, 'y') else 'No target'}")
 
     predict_dataloader_kwargs = {
         "dataset": predict_dataset,

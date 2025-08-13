@@ -25,7 +25,7 @@ class H5Dataset(BaseDataset):
         use_previous_data: bool = False,
         switch_to_val: bool = False,
         world_pos_parameters: Optional[dict] = None,
-        use_subset: int = 0,
+        use_subset: int = 1,
     ):
         super().__init__(
             meta_path=meta_path,

@@ -1,1 +1,4 @@
-python -m graphphysics.train --training_parameters_path=training_config/plate_stress_local.json --num_epochs=20 --init_lr=0.001 --batch_size=1 --warmup=500 --num_workers=0 --prefetch_factor=0 --model_save_name=output/model.ckpt --previous_data_start=4 --previous_data_end=8 --use_previous_data=False
+python -m graphphysics.train --training_parameters_path=training_config/plate_stress_local.json \
+                             --num_epochs=20 --init_lr=0.001 --batch_size=1 --warmup=500 \
+                             --num_workers=0 --prefetch_factor=0 --model_save_name=output/model.ckpt \
+                             --previous_data_start=4 --previous_data_end=8 --use_previous_data=False

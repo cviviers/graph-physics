@@ -19,6 +19,10 @@ def convert_to_meshio_vtu(graph: Data, add_all_data: bool = False) -> meshio.Mes
         meshio.Mesh: The converted Meshio mesh.
     """
 
+    # print details about the graph
+    print(f"Converting graph with {graph.num_nodes} nodes and {graph.num_edges} edges.")
+    print(f"Graph has {len(graph.x)} node features and {len(graph.edge_index)} edges.")
+
     # Ensure 'pos' attribute exists
     if not hasattr(graph, "pos") or graph.pos is None:
         raise ValueError("Graph must have 'pos' attribute with node positions.")

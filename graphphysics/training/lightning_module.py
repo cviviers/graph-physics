@@ -8,7 +8,7 @@ from loguru import logger
 from torch_geometric.data import Batch
 
 from graphphysics.training.parse_parameters import get_model, get_simulator
-from graphphysics.utils.loss import DiagonalGaussianMixtureNLLLoss, L2Loss
+from graphphysics.utils.loss import DiagonalGaussianMixtureNLLLoss, L2Loss, StressL2Loss
 from graphphysics.utils.meshio_mesh import convert_to_meshio_vtu
 from graphphysics.utils.nodetype import NodeType
 from graphphysics.utils.scheduler import CosineWarmupScheduler
@@ -70,7 +70,7 @@ class LightningModule(L.LightningModule):
         self.K = processor.K
 
         if self.K == 0:
-            self.loss = L2Loss()
+            self.loss = StressL2Loss()
         else:
             self.loss = DiagonalGaussianMixtureNLLLoss(
                 d=processor.d,
@@ -143,6 +143,7 @@ class LightningModule(L.LightningModule):
                 for idx, graph in enumerate(trajectory):
                     mesh = convert_to_meshio_vtu(graph, add_all_data=True)
                     point_data = mesh.point_data
+                    print(f"Saving graph {idx} at epoch {self.current_epoch} with {len(point_data)} point data entries.")
                     cell_data = mesh.cell_data
                     writer.write_data(t, point_data=point_data, cell_data=cell_data)
                     t += timestep
@@ -326,6 +327,7 @@ class LightningModule(L.LightningModule):
         ) = self._make_prediction(
             batch, self.last_pred_prediction, self.last_previous_data_pred_prediction
         )
+        # print(f"Prediction step: {batch.traj_index}, batch: {batch.batch}, predicted_outputs: {predicted_outputs.shape}, target: {target.shape}")
         self.prediction_trajectory.append(batch)
 
     def _reset_predict_epoch_end(self):
