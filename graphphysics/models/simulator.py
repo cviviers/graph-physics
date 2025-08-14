@@ -228,8 +228,8 @@ class Simulator(nn.Module):
         target = inputs.y
         pre_target = self._get_pre_target(inputs)
         target_delta = target - pre_target
+        # print(target_delta.shape)
         # normalize the target delta separately for position and stress
-        
         target_delta_pos_normalized  =  self._output_normalizer(target_delta[:, :3])
         target_delta_stress_normalized = self._stress_normalizer(target_delta[:, 3:])
         target_delta_normalized = torch.cat([target_delta_pos_normalized, target_delta_stress_normalized], dim=1)
@@ -404,9 +404,7 @@ class Simulator(nn.Module):
 
         model_state = self.state_dict()
         output_normalizer_state = self._output_normalizer.get_variable()
-        stress_normalizer_state = (
-            self._stress_normalizer.get_variable() if self._stress_normalizer else None
-        )
+        stress_normalizer_state = self._stress_normalizer.get_variable()
         node_normalizer_state = self._node_normalizer.get_variable()
         edge_normalizer_state = (
             self._edge_normalizer.get_variable() if self._edge_normalizer else None
